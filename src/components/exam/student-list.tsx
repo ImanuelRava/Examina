@@ -53,9 +53,9 @@ export function StudentExamList({ onStart }: StudentExamListProps) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-300 p-12 text-center">
         <FileText className="mx-auto h-8 w-8 text-zinc-300" aria-hidden="true" />
-        <p className="mt-4 text-sm font-medium text-zinc-900">No exams available yet</p>
+        <p className="mt-4 text-sm font-medium text-zinc-900">No tests available yet</p>
         <p className="mt-1 text-sm text-zinc-500">
-          Ask your administrator to create one in the Admin Console.
+          Check back later - the admin sets up exams in the Admin Portal.
         </p>
       </div>
     )

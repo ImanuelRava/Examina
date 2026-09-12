@@ -53,7 +53,7 @@ export default function Page() {
             onClick={() => setView({ name: 'home' })}
             className="text-base font-semibold tracking-tight text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
           >
-            examina<span className="text-zinc-900">.</span>
+            Noel&apos;s Test
           </button>
 
           <nav className="flex items-center gap-1" aria-label="Portals">
@@ -93,9 +93,10 @@ export default function Page() {
             <>
               <div className="mb-8">
                 <p className="text-xs font-medium uppercase tracking-[0.25em] text-zinc-400">Student portal</p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">Available exams</h1>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">Available tests</h1>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Pick an exam. Your report card appears the moment you submit.
+                  Anyone can take a test. Pick one, and your report card appears the moment you
+                  submit.
                 </p>
               </div>
               <StudentExamList onStart={(examId) => setView({ name: 'take', examId })} />
@@ -179,8 +180,8 @@ export default function Page() {
       {/* Footer (sticks to bottom via flex layout) */}
       <footer className="mt-auto border-t border-zinc-100">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-4 text-xs text-zinc-400 sm:px-6">
-          <span>examina - instant report cards for every exam</span>
-          <span className="hidden sm:block">Student portal · Admin console</span>
+          <span>Noel&apos;s Test - instant report cards for every test</span>
+          <span className="hidden sm:block">Student portal · Admin portal</span>
         </div>
       </footer>
     </div>

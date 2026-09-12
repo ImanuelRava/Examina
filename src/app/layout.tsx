@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Examina - Student & Admin Exam Platform",
+  title: "Noel's Test - Test Your Knowledge",
   description:
-    "Students take exams and get an instant report card showing right and wrong answers. Admins create examination pages and upload answer key files.",
-  keywords: ["exam", "examination", "quiz", "report card", "answer key", "student", "admin"],
+    "A place to test student knowledge. Anyone can take a test and get an instant report card showing right and wrong answers. The admin sets up exams, questions, and answer keys.",
+  keywords: ["test", "exam", "examination", "quiz", "report card", "answer key", "student", "admin", "knowledge"],
 };
 
 export default function RootLayout({

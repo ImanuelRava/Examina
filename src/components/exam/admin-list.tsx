@@ -104,7 +104,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Exams</h1>
-          <p className="mt-1 text-sm text-zinc-500">Create examination pages, manage questions and answer keys.</p>
+          <p className="mt-1 text-sm text-zinc-500">Set up exams: create tests, manage questions and answer keys.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="shrink-0">
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -121,7 +121,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
         ) : exams.length === 0 ? (
           <div className="rounded-xl border border-dashed border-zinc-300 p-12 text-center">
             <p className="text-sm font-medium text-zinc-900">No exams yet</p>
-            <p className="mt-1 text-sm text-zinc-500">Create your first examination page to get started.</p>
+            <p className="mt-1 text-sm text-zinc-500">Create your first exam to get started.</p>
           </div>
         ) : (
           exams.map((exam) => (
