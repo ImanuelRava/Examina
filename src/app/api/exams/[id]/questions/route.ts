@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-/** POST /api/exams/[id]/questions — add one question to an exam (admin only) */
+/** POST /api/exams/[id]/questions - add one question to an exam (admin only) */
 export async function POST(req: NextRequest, ctx: Ctx) {
   const denied = guardAdmin(req)
   if (denied) return denied

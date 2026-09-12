@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-/** PATCH /api/questions/[id] — edit a question (admin only) */
+/** PATCH /api/questions/[id] - edit a question (admin only) */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const denied = guardAdmin(req)
   if (denied) return denied
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 }
 
-/** DELETE /api/questions/[id] — remove question and renumber the rest (admin only) */
+/** DELETE /api/questions/[id] - remove question and renumber the rest (admin only) */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   const denied = guardAdmin(req)
   if (denied) return denied

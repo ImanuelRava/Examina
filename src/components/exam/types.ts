@@ -93,7 +93,7 @@ export interface AnswerKeyResult {
   warnings: string[]
 }
 
-/** Small fetch wrapper — throws readable errors from API JSON responses. */
+/** Small fetch wrapper - throws readable errors from API JSON responses. */
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     cache: 'no-store',
@@ -112,7 +112,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 /** Formats seconds as m:ss; returns an em dash for null/undefined. */
 export function formatDuration(totalSeconds?: number | null): string {
-  if (totalSeconds == null || totalSeconds < 0) return '—'
+  if (totalSeconds == null || totalSeconds < 0) return '-'
   const m = Math.floor(totalSeconds / 60)
   const s = Math.floor(totalSeconds % 60)
   return `${m}:${String(s).padStart(2, '0')}`

@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect, useState } from 'react'
-import { KeyRound, Loader2, Lock } from 'lucide-react'
+import { KeyRound, Loader2, Lock, LogOut } from 'lucide-react'
 import { api } from './types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,19 @@ export function AdminGate({ children }: { children: ReactNode }) {
       toast({ title: 'Welcome back, admin' })
     } catch (err) {
       setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleLogout() {
+    setBusy(true)
+    try {
+      await api('/api/admin/logout', { method: 'POST' })
+      setStatus('anon')
+      toast({ title: 'Logged out' })
+    } catch {
+      toast({ title: 'Logout failed', variant: 'destructive' })
     } finally {
       setBusy(false)
     }
@@ -97,15 +110,20 @@ export function AdminGate({ children }: { children: ReactNode }) {
               Sign in
             </Button>
           </form>
-
-          <p className="mt-5 rounded-lg bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-500">
-            Demo password: <span className="font-mono font-medium text-zinc-700">examina-admin</span> — change it via
-            the <span className="font-mono">ADMIN_PASSWORD</span> environment variable.
-          </p>
         </div>
       </div>
     )
   }
 
-  return <>{children}</>
+  return (
+    <div>
+      <div className="mb-4 flex justify-end">
+        <Button variant="ghost" size="sm" onClick={handleLogout} disabled={busy}>
+          <LogOut className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          Log out
+        </Button>
+      </div>
+      {children}
+    </div>
+  )
 }

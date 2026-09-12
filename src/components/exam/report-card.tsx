@@ -12,7 +12,7 @@ interface ReportCardProps {
   attemptId: string
   onBack: () => void
   backLabel?: string
-  /** Omit in admin context — admins view reports, they don't retake exams. */
+  /** Omit in admin context - admins view reports, they don't retake exams. */
   onRetake?: (examId: string) => void
 }
 

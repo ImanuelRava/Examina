@@ -1,5 +1,5 @@
 /**
- * Answer key parser — supports the common formats teachers use:
+ * Answer key parser: supports the common formats teachers use:
  *
  * JSON:      {"1":"A","2":"C"}  |  ["A","C","B"]  |  [{"no":1,"answer":"A"}, ...]
  * CSV/TXT:   1,A                |  1. A           |  1) A

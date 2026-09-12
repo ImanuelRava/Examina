@@ -179,7 +179,7 @@ export default function Page() {
       {/* Footer (sticks to bottom via flex layout) */}
       <footer className="mt-auto border-t border-zinc-100">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-4 text-xs text-zinc-400 sm:px-6">
-          <span>examina — instant report cards for every exam</span>
+          <span>examina - instant report cards for every exam</span>
           <span className="hidden sm:block">Student portal · Admin console</span>
         </div>
       </footer>

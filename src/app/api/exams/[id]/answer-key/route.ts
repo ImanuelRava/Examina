@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 type Ctx = { params: Promise<{ id: string }> }
 
 /**
- * GET /api/exams/[id]/answer-key — download a CSV template (admin only)
+ * GET /api/exams/[id]/answer-key - download a CSV template (admin only)
  * listing every question number with its current answer.
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
@@ -100,12 +100,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   for (const q of exam.questions) {
     const letter = parsed.answers[q.order]
     if (!letter) {
-      issues.push(`Q${q.order}: no answer provided — kept "${q.correctAnswer}".`)
+      issues.push(`Q${q.order}: no answer provided - kept "${q.correctAnswer}".`)
       continue
     }
     const options = JSON.parse(q.optionsJson) as { key: string; text: string }[]
     if (!options.some((o) => o.key === letter)) {
-      issues.push(`Q${q.order}: option "${letter}" does not exist on this question — kept "${q.correctAnswer}".`)
+      issues.push(`Q${q.order}: option "${letter}" does not exist on this question - kept "${q.correctAnswer}".`)
       continue
     }
     if (q.correctAnswer !== letter) {
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // Numbers in the key that point beyond the question list
   const maxOrder = exam.questions.length
   for (const no of Object.keys(parsed.answers).map(Number)) {
-    if (no > maxOrder) issues.push(`Q${no}: exam only has ${maxOrder} questions — skipped.`)
+    if (no > maxOrder) issues.push(`Q${no}: exam only has ${maxOrder} questions - skipped.`)
   }
 
   return NextResponse.json({

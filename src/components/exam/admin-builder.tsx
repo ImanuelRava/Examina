@@ -221,7 +221,7 @@ export function AdminExamBuilder({ examId, onBack }: AdminExamBuilderProps) {
               </div>
               <div>
                 <Label htmlFor="edit-duration">
-                  Time limit <span className="font-normal text-zinc-400">(minutes — leave empty for untimed)</span>
+                  Time limit <span className="font-normal text-zinc-400">(minutes - leave empty for untimed)</span>
                 </Label>
                 <Input
                   id="edit-duration"

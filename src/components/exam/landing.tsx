@@ -16,7 +16,7 @@ export function Landing({ onEnter }: LandingProps) {
         Build exams.
       </h1>
       <p className="mt-5 max-w-md text-center text-base leading-relaxed text-zinc-500">
-        One platform, two doors. Students get an instant report card after every exam — admins
+        One platform, two doors. Students get an instant report card after every exam - admins
         build the exams and upload the answer key.
       </p>
 
@@ -51,7 +51,7 @@ export function Landing({ onEnter }: LandingProps) {
           <span className="mt-6 text-lg font-medium text-zinc-900">Admin Console</span>
           <span className="mt-2 flex-1 text-sm leading-relaxed text-zinc-500">
             Create examination pages, add questions, and upload an answer key file. Grading is
-            automatic — students see their results the moment they submit.
+            automatic - students see their results the moment they submit.
           </span>
           <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900">
             Enter console

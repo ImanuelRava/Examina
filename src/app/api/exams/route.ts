@@ -4,7 +4,7 @@ import { guardAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/exams — list all exams with counts */
+/** GET /api/exams - list all exams with counts */
 export async function GET() {
   const exams = await db.exam.findMany({
     orderBy: { createdAt: 'desc' },
@@ -13,7 +13,7 @@ export async function GET() {
   return NextResponse.json({ exams })
 }
 
-/** POST /api/exams — create a new exam (admin only) */
+/** POST /api/exams - create a new exam (admin only) */
 export async function POST(req: NextRequest) {
   const denied = guardAdmin(req)
   if (denied) return denied

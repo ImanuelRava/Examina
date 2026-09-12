@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Examina — Student & Admin Exam Platform",
+  title: "Examina - Student & Admin Exam Platform",
   description:
     "Students take exams and get an instant report card showing right and wrong answers. Admins create examination pages and upload answer key files.",
   keywords: ["exam", "examination", "quiz", "report card", "answer key", "student", "admin"],

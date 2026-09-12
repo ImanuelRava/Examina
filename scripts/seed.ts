@@ -15,7 +15,7 @@ async function main() {
 
   const exam = await prisma.exam.create({
     data: {
-      title: 'General Knowledge — Demo Exam',
+      title: 'General Knowledge - Demo Exam',
       description:
         'A quick 5-question demo so you can try the full flow: take the exam and get your instant report card.',
       questions: {

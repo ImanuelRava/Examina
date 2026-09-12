@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 type Ctx = { params: Promise<{ id: string }> }
 
 /**
- * POST /api/exams/[id]/submit — grade a submission server-side.
+ * POST /api/exams/[id]/submit - grade a submission server-side.
  * Body: { studentName?: string, answers: Record<questionId, optionKey | ""> }
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: 'This exam has no questions yet.' }, { status: 400 })
   }
 
-  // Grade server-side — the client never sees the correct answers before submit.
+  // Grade server-side - the client never sees the correct answers before submit.
   let score = 0
   const graded: { questionId: string; selected: string; isCorrect: boolean }[] = []
 

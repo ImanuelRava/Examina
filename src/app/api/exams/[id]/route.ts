@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-/** GET /api/exams/[id] — full exam detail for the admin console (admin only, includes answers) */
+/** GET /api/exams/[id] - full exam detail for the admin console (admin only, includes answers) */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const denied = guardAdmin(req)
   if (denied) return denied
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   })
 }
 
-/** PATCH /api/exams/[id] — rename / edit description / set time limit (admin only) */
+/** PATCH /api/exams/[id] - rename / edit description / set time limit (admin only) */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const denied = guardAdmin(req)
   if (denied) return denied
@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const title = (body.title ?? '').toString().trim()
   if (!title) return NextResponse.json({ error: 'Exam title is required.' }, { status: 400 })
 
-  // Time limit: null/empty = untimed, otherwise clamp to 1–600 minutes
+  // Time limit: null/empty = untimed, otherwise clamp to 1-600 minutes
   let durationMinutes: number | null = null
   const rawDuration = body.durationMinutes
   if (rawDuration !== null && rawDuration !== undefined && rawDuration !== '') {
@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 }
 
-/** DELETE /api/exams/[id] — delete exam and everything attached to it (admin only) */
+/** DELETE /api/exams/[id] - delete exam and everything attached to it (admin only) */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   const denied = guardAdmin(req)
   if (denied) return denied

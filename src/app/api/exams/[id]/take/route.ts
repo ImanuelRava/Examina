@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 type Ctx = { params: Promise<{ id: string }> }
 
 /**
- * GET /api/exams/[id]/take — student view of an exam.
+ * GET /api/exams/[id]/take - student view of an exam.
  * Correct answers are intentionally NOT included.
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {

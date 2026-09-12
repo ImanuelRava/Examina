@@ -4,7 +4,7 @@ import { guardAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/admin/results — all attempts with exam titles (admin only) */
+/** GET /api/admin/results - all attempts with exam titles (admin only) */
 export async function GET(req: NextRequest) {
   const denied = guardAdmin(req)
   if (denied) return denied

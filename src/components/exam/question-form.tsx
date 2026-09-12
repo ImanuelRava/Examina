@@ -94,7 +94,7 @@ export function QuestionForm({ examId, initial, onDone }: QuestionFormProps) {
 
       <div>
         <Label>
-          Options <span className="font-normal text-zinc-400">— mark the correct one with the radio</span>
+          Options <span className="font-normal text-zinc-400">- mark the correct one with the radio</span>
         </Label>
         <RadioGroup value={correct} onValueChange={setCorrect} className="mt-1.5 space-y-2">
           {options.map((opt, i) => (
@@ -132,7 +132,7 @@ export function QuestionForm({ examId, initial, onDone }: QuestionFormProps) {
 
       <div>
         <Label htmlFor="q-expl">
-          Explanation <span className="font-normal text-zinc-400">(optional — shown on the report card)</span>
+          Explanation <span className="font-normal text-zinc-400">(optional - shown on the report card)</span>
         </Label>
         <Input
           id="q-expl"

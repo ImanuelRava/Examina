@@ -3,7 +3,7 @@ import { ADMIN_COOKIE, checkPassword, createAdminToken } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-/** POST /api/admin/login — { password } → sets HttpOnly admin cookie */
+/** POST /api/admin/login - { password } → sets HttpOnly admin cookie */
 export async function POST(req: NextRequest) {
   let body: { password?: string }
   try {
