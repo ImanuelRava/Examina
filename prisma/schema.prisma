@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Exam {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  // Optional countdown limit in minutes; null = untimed
+  durationMinutes Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  questions       Question[]
+  attempts        Attempt[]
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  examId        String
+  order         Int
+  text          String
+  // JSON string: [{ "key": "A", "text": "..." }, ...]
+  optionsJson   String
+  correctAnswer String // "A" | "B" | "C" | ...
+  explanation   String?
+  exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers       Answer[]
+
+  @@index([examId, order])
+}
+
+model Attempt {
+  id               String   @id @default(cuid())
+  examId           String
+  studentName      String   @default("Anonymous")
+  score            Int
+  total            Int
+  timeSpentSeconds Int?
+  autoSubmitted    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  exam             Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers          Answer[]
+
+  @@index([examId])
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  attemptId  String
+  questionId String
+  selected   String // "" when unanswered
+  isCorrect  Boolean
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+}
