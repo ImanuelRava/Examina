@@ -206,7 +206,7 @@ export function AdminExamBuilder({ examId, onBack }: AdminExamBuilderProps) {
             <div className="mt-4 space-y-4">
               <div>
                 <Label htmlFor="edit-title">Title</Label>
-                <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1.5" />
+                <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2.5" />
               </div>
               <div>
                 <Label htmlFor="edit-desc">Description</Label>
@@ -215,7 +215,7 @@ export function AdminExamBuilder({ examId, onBack }: AdminExamBuilderProps) {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="mt-1.5"
+                  className="mt-2.5"
                   placeholder="Shown to students before they start."
                 />
               </div>
@@ -231,7 +231,7 @@ export function AdminExamBuilder({ examId, onBack }: AdminExamBuilderProps) {
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="e.g. 30"
-                  className="mt-1.5"
+                  className="mt-2.5"
                 />
                 <p className="mt-2 text-xs text-zinc-400">
                   When set, students see a countdown and the exam is submitted automatically when time expires.

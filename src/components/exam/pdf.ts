@@ -17,9 +17,63 @@ const RED: [number, number, number] = [220, 38, 38]
 const SOFT_GREEN: [number, number, number] = [236, 253, 245]
 const SOFT_RED: [number, number, number] = [254, 242, 242]
 
-/** Strips $ / $$ math delimiters so the PDF shows clean raw TeX. */
-function plain(s: string): string {
-  return (s ?? '').replace(/\$\$([\s\S]*?)\$\$/g, '$1').replace(/\$([^$]*?)\$/g, '$1')
+/**
+ * Converts LaTeX math ($...$ / $$...$$) into readable plain text for the PDF.
+ * jsPDF core fonts are WinAnsi, so output sticks to that charset: ¹²³ × ÷ ± · °
+ * are available; other symbols and greek letters are spelled out (sqrt, pi, <=).
+ */
+function plain(input: string): string {
+  let s = (input ?? '')
+    .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
+    .replace(/\$([^$]*?)\$/g, '$1')
+
+  const rules: Array<[RegExp, string]> = [
+    [/\^\{\s*\\circ\s*\}/g, '°'],
+    [/\^\\circ\b/g, '°'],
+    [/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)'],
+    [/\\sqrt\s*\{([^{}]*)\}/g, 'sqrt($1)'],
+    [/\\times\b/g, ' × '],
+    [/\\cdot\b/g, ' · '],
+    [/\\div\b/g, ' ÷ '],
+    [/\\pm\b/g, '±'],
+    [/\\leq?\b/g, '<='],
+    [/\\geq?\b/g, '>='],
+    [/\\neq?\b/g, '!='],
+    [/\\approx\b/g, '~'],
+    [/\\infty\b/g, 'infinity'],
+    [/\\sum\b/g, 'sum'],
+    [/\\prod\b/g, 'product'],
+    [/\\int\b/g, 'integral'],
+    [/\\Rightarrow\b/g, '=>'],
+    [/\\to\b|\\rightarrow\b/g, '->'],
+    [/\\(alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|rho|sigma|tau|phi|omega)\b/g, ' $1 '],
+    [/\\(Alpha|Beta|Gamma|Delta|Theta|Lambda|Sigma|Omega)\b/g, ' $1 '],
+    [/\\pi\b/g, ' pi '],
+    [/\\circ\b/g, '°'],
+    [/\\text\b|\\mathrm\b/g, ''],
+    [/\\left\b|\\right\b/g, ''],
+    [/\\quad\b|\\qquad\b/g, ' '],
+    [/\\\\/g, ' '],
+    [/\\[,;!]/g, ' '],
+    [/\\%/g, '%'],
+    [/\\\{/g, '{'],
+    [/\\\}/g, '}'],
+    [/\\&/g, '&'],
+  ]
+  for (const [re, rep] of rules) s = s.replace(re, rep)
+
+  // Superscripts: WinAnsi only has ¹²³, otherwise keep the ^ notation
+  const SUP: Record<string, string> = { '1': '¹', '2': '²', '3': '³' }
+  s = s
+    .replace(/\^\{([^{}]+)\}/g, (_m, g: string) => (g.length === 1 && SUP[g]) || `^${g}`)
+    .replace(/\^([0-9])(?![0-9])/g, (m, d: string) => SUP[d] ?? m)
+
+  // Subscripts have no WinAnsi glyphs - flatten braces, keep _x notation
+  s = s.replace(/_\{([^{}]+)\}/g, '_$1')
+
+  // Strip leftover grouping braces and tidy whitespace
+  s = s.replace(/[{}]/g, '').replace(/[ \t]+/g, ' ').replace(/ +([,.!?;:])/g, '$1').trim()
+  return s
 }
 
 export async function downloadReportPdf(report: AttemptReport): Promise<void> {
@@ -50,7 +104,7 @@ export async function downloadReportPdf(report: AttemptReport): Promise<void> {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(17)
   doc.setTextColor(...INK)
-  const titleLines = doc.splitTextToSize(report.examTitle, contentW)
+  const titleLines = doc.splitTextToSize(plain(report.examTitle), contentW)
   doc.text(titleLines, M, 98)
   let y = 98 + titleLines.length * 21
 

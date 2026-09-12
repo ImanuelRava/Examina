@@ -85,7 +85,8 @@ export function QuestionForm({ examId, initial, onDone }: QuestionFormProps) {
           className="mt-1.5"
         />
         <p className="mt-2 text-xs text-zinc-400">
-          LaTeX supported: wrap math in <span className="font-mono">$...$</span>, e.g.{' '}
+          LaTeX supported in the question, options, and explanation: wrap math in{' '}
+          <span className="font-mono">$...$</span>, e.g.{' '}
           <span className="font-mono">$\frac{'{'}1{'}'}{'{'}2{'}'}$</span> or{' '}
           <span className="font-mono">$\sqrt{'{'}x{'}'}$</span>. Use <span className="font-mono">$$...$$</span> for
           display math.
@@ -94,7 +95,10 @@ export function QuestionForm({ examId, initial, onDone }: QuestionFormProps) {
 
       <div>
         <Label>
-          Options <span className="font-normal text-zinc-400">- mark the correct one with the radio</span>
+          Options{' '}
+          <span className="font-normal text-zinc-400">
+            - LaTeX supported, e.g. <span className="font-mono">$x^2$</span> - mark the correct one with the radio
+          </span>
         </Label>
         <RadioGroup value={correct} onValueChange={setCorrect} className="mt-1.5 space-y-2">
           {options.map((opt, i) => (

@@ -172,6 +172,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Midterm Mathematics"
                 autoFocus
+                className="mt-2.5"
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               />
             </div>
@@ -185,6 +186,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What does this exam cover?"
                 rows={3}
+                className="mt-2.5"
               />
             </div>
           </div>
