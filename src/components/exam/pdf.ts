@@ -11,29 +11,36 @@ import {
 } from './pdf-math'
 
 /**
- * Generates a clean, minimalist PDF report card with jsPDF.
+ * Generates a polished PDF report card with jsPDF.
  *
- * Math rendering: text containing $...$ or $$...$$ is rendered to a PNG via
- * KaTeX + html-to-image, then embedded as an image in the PDF. Plain text
- * uses jsPDF's native text() for crispness and small file size.
+ * Design:
+ * - Dark header band with "REPORT CARD" title
+ * - Score ring chart (drawn with jsPDF arcs)
+ * - Card-based question layout (not a table) with colored left borders
+ * - Color-coded results: green (right), red (wrong), amber (skipped)
+ * - Math rendered as real equations via MathJax SVG → PNG (pdf-math.ts)
  *
- * Dynamic imports keep jsPDF out of the initial bundle.
+ * Fallback: if math rendering fails, falls back to plain-text LaTeX stripping.
+ * Last resort: if the entire pipeline crashes, generates a text-only PDF.
  */
 
-const INK: [number, number, number] = [24, 24, 27]
-const MUTED: [number, number, number] = [113, 113, 122]
-const LINE: [number, number, number] = [228, 228, 231]
-const GREEN: [number, number, number] = [5, 150, 105]
-const RED: [number, number, number] = [220, 38, 38]
-const SOFT_GREEN: [number, number, number] = [236, 253, 245]
-const SOFT_RED: [number, number, number] = [254, 242, 242]
+// ── Colors ──────────────────────────────────────────────────────────────────
+const INK: [number, number, number] = [24, 24, 27]         // zinc-900
+const MUTED: [number, number, number] = [113, 113, 122]     // zinc-500
+const LIGHT: [number, number, number] = [161, 161, 170]     // zinc-400
+const LINE: [number, number, number] = [228, 228, 231]      // zinc-200
+const BG: [number, number, number] = [250, 250, 250]        // zinc-50
 const WHITE: [number, number, number] = [255, 255, 255]
+const GREEN: [number, number, number] = [5, 150, 105]       // emerald-600
+const GREEN_BG: [number, number, number] = [236, 253, 245]  // emerald-50
+const RED: [number, number, number] = [220, 38, 38]         // red-600
+const RED_BG: [number, number, number] = [254, 242, 242]    // red-50
+const AMBER: [number, number, number] = [217, 119, 6]       // amber-600
+const AMBER_BG: [number, number, number] = [255, 251, 235]  // amber-50
+const DARK: [number, number, number] = [30, 30, 35]         // near-black for header
 
-/**
- * Fallback plain-text conversion for text that contains math but failed to
- * render as an image, OR for text without math (where we still need to strip
- * stray $ delimiters). Output sticks to WinAnsi glyphs.
- */
+// ── Plain text fallback ─────────────────────────────────────────────────────
+
 function plain(input: string): string {
   let s = (input ?? '')
     .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
@@ -58,9 +65,9 @@ function plain(input: string): string {
     [/\\int\b/g, 'integral'],
     [/\\Rightarrow\b/g, '=>'],
     [/\\to\b|\\rightarrow\b/g, '->'],
-    [/\\(alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|rho|sigma|tau|phi|omega)\b/g, ' $1 '],
-    [/\\(Alpha|Beta|Gamma|Delta|Theta|Lambda|Sigma|Omega)\b/g, ' $1 '],
-    [/\\pi\b/g, ' pi '],
+    [/\\(alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|rho|sigma|tau|phi|omega)\b/g, '$1'],
+    [/\\(Alpha|Beta|Gamma|Delta|Theta|Lambda|Sigma|Omega)\b/g, '$1'],
+    [/\\pi\b/g, 'pi'],
     [/\\circ\b/g, '°'],
     [/\\text\b|\\mathrm\b/g, ''],
     [/\\left\b|\\right\b/g, ''],
@@ -78,14 +85,14 @@ function plain(input: string): string {
   s = s
     .replace(/\^\{([^{}]+)\}/g, (_m, g: string) => (g.length === 1 && SUP[g]) || `^${g}`)
     .replace(/\^([0-9])(?![0-9])/g, (m, d: string) => SUP[d] ?? m)
-
   s = s.replace(/_\{([^{}]+)\}/g, '_$1')
-
   s = s.replace(/[{}]/g, '').replace(/[ \t]+/g, ' ').replace(/ +([,.!?;:])/g, '$1').trim()
   return s
 }
 
-interface QuestionRow {
+// ── Types ───────────────────────────────────────────────────────────────────
+
+interface QuestionCard {
   order: number
   isCorrect: boolean
   selected: string
@@ -95,16 +102,18 @@ interface QuestionRow {
   yourAnswerText: string
   correctAnswerImg: RenderedImage | null
   correctAnswerText: string
+  explanationImg: RenderedImage | null
+  explanationText: string
   resultLabel: 'Right' | 'Wrong' | 'Skipped'
 }
+
+// ── Main entry ──────────────────────────────────────────────────────────────
 
 export async function downloadReportPdf(report: AttemptReport): Promise<void> {
   try {
     await downloadReportPdfInternal(report)
   } catch (err) {
     console.error('PDF generation failed, falling back to text-only:', err)
-    // Last-resort fallback: a minimal text-only PDF so the user always
-    // gets *something* downloadable, even if math image rendering crashes.
     await downloadReportPdfFallback(report)
   }
 }
@@ -116,34 +125,40 @@ async function downloadReportPdfInternal(report: AttemptReport): Promise<void> {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const W = doc.internal.pageSize.getWidth()
   const H = doc.internal.pageSize.getHeight()
-  const M = 48
+  const M = 42
   const contentW = W - M * 2
 
-  // ---------- Header ----------
+  // ── Dark header band ────────────────────────────────────────────────────
+  doc.setFillColor(...DARK)
+  doc.rect(0, 0, W, 72, 'F')
+
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.setTextColor(...INK)
-  doc.text("Noel's Test", M, 56)
+  doc.setFontSize(16)
+  doc.setTextColor(...WHITE)
+  doc.text('REPORT CARD', M, 36)
 
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(...MUTED)
-  doc.text('REPORT CARD', W - M, 56, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setTextColor(160, 160, 170)
+  doc.text("Noel's Test — instant report cards for every test", M, 54)
 
-  doc.setDrawColor(...LINE)
-  doc.setLineWidth(1)
-  doc.line(M, 68, W - M, 68)
+  doc.setFontSize(9)
+  doc.setTextColor(160, 160, 170)
+  doc.text(new Date().toLocaleDateString(), W - M, 36, { align: 'right' })
+  doc.text(`${report.questions.length} questions`, W - M, 54, { align: 'right' })
 
-  // ---------- Title + meta ----------
+  let y = 72 + 28
+
+  // ── Exam title + meta ───────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(17)
+  doc.setFontSize(20)
   doc.setTextColor(...INK)
   const titleLines = doc.splitTextToSize(plain(report.examTitle), contentW)
-  doc.text(titleLines, M, 98)
-  let y = 98 + titleLines.length * 21
+  doc.text(titleLines, M, y)
+  y += titleLines.length * 24 + 4
 
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9.5)
+  doc.setFontSize(10)
   doc.setTextColor(...MUTED)
   const metaBits = [
     report.studentName !== 'Anonymous' ? report.studentName : null,
@@ -152,123 +167,122 @@ async function downloadReportPdfInternal(report: AttemptReport): Promise<void> {
     report.autoSubmitted ? 'Auto-submitted (time expired)' : null,
   ].filter(Boolean) as string[]
   doc.text(metaBits.join('   ·   '), M, y)
-  y += 30
+  y += 28
 
-  // ---------- Score band ----------
+  // ── Score section with ring chart ───────────────────────────────────────
   const pct = report.total > 0 ? Math.round((report.score / report.total) * 100) : 0
-  const bandH = 88
-  doc.setFillColor(250, 250, 250)
-  doc.roundedRect(M, y, contentW, bandH, 6, 6, 'F')
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7.5)
-  doc.setTextColor(...MUTED)
-  doc.text('SCORE', M + 20, y + 22)
-
-  doc.setFontSize(24)
-  doc.setTextColor(...INK)
-  doc.text(`${report.score}/${report.total}`, M + 20, y + 50)
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(11)
-  doc.setTextColor(...(pct >= 50 ? GREEN : RED))
-  doc.text(`${pct}%`, M + 20, y + 68)
-
-  const barX = M + 110
-  const barY = y + 40
-  const barW = contentW - 130 - 150
-  doc.setFillColor(...LINE)
-  doc.roundedRect(barX, barY, barW, 8, 4, 4, 'F')
-  doc.setFillColor(...(pct >= 50 ? GREEN : RED))
-  if (pct > 0) doc.roundedRect(barX, barY, Math.max(8, (barW * pct) / 100), 8, 4, 4, 'F')
-
   const correctCount = report.questions.filter((q) => q.isCorrect).length
   const skippedCount = report.questions.filter((q) => !q.selected).length
   const wrongCount = report.total - correctCount - skippedCount
-  const legendX = barX + barW + 24
-  doc.setFontSize(9.5)
-  doc.setTextColor(...GREEN)
-  doc.text(`${correctCount} right`, legendX, y + 34)
-  doc.setTextColor(...RED)
-  doc.text(`${wrongCount} wrong`, legendX, y + 50)
-  doc.setTextColor(...MUTED)
-  doc.text(`${skippedCount} skipped`, legendX, y + 66)
+  const ringColor = pct >= 50 ? GREEN : RED
 
-  y += bandH + 28
+  const scoreBoxH = 100
+  doc.setFillColor(...BG)
+  doc.roundedRect(M, y, contentW, scoreBoxH, 8, 8, 'F')
 
-  // ---------- Pre-render all math images in parallel ----------
-  // Column widths must match the table layout below.
-  const colWidths = {
-    num: 26,
-    question: contentW - 26 - 118 - 118 - 52,
-    yourAnswer: 118,
-    correctAnswer: 118,
-    result: 52,
+  // Ring chart (left side)
+  const ringCx = M + 55
+  const ringCy = y + scoreBoxH / 2
+  const ringR = 32
+
+  // Background ring
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(6)
+  doc.circle(ringCx, ringCy, ringR, 'S')
+
+  // Score arc — draw as series of small segments (jsPDF doesn't have arc)
+  if (pct > 0) {
+    doc.setDrawColor(...ringColor)
+    doc.setLineWidth(6)
+    const segments = Math.ceil((pct / 100) * 60) // 60 segments for full circle
+    for (let i = 0; i < segments; i++) {
+      const angle = (i / 60) * 2 * Math.PI - Math.PI / 2
+      const nextAngle = ((i + 1) / 60) * 2 * Math.PI - Math.PI / 2
+      const x1 = ringCx + Math.cos(angle) * ringR
+      const y1 = ringCy + Math.sin(angle) * ringR
+      const x2 = ringCx + Math.cos(nextAngle) * ringR
+      const y2 = ringCy + Math.sin(nextAngle) * ringR
+      doc.line(x1, y1, x2, y2)
+    }
   }
+
+  // Percentage text in center
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(18)
+  doc.setTextColor(...INK)
+  doc.text(`${pct}%`, ringCx, ringCy + 6, { align: 'center' })
+
+  // Score breakdown (right of ring)
+  const breakdownX = M + 120
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.setTextColor(...INK)
+  doc.text(`${report.score} / ${report.total}`, breakdownX, y + 32)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text('correct', breakdownX, y + 46)
+
+  // Stat badges
+  const badgeY = y + 62
+  const badgeH = 24
+  const badgeW = 70
+  const badgeGap = 8
+
+  // Right badge
+  drawStatBadge(doc, breakdownX, badgeY, badgeW, badgeH, 'Right', correctCount, GREEN, GREEN_BG)
+  // Wrong badge
+  drawStatBadge(doc, breakdownX + badgeW + badgeGap, badgeY, badgeW, badgeH, 'Wrong', wrongCount, RED, RED_BG)
+  // Skipped badge
+  drawStatBadge(doc, breakdownX + (badgeW + badgeGap) * 2, badgeY, badgeW, badgeH, 'Skipped', skippedCount, AMBER, AMBER_BG)
+
+  y += scoreBoxH + 28
+
+  // ── Pre-render all math images ──────────────────────────────────────────
+  const cardWidth = contentW
+  const questionTextW = cardWidth - 56 // padding inside card
+  const answerW = (cardWidth - 56 - 16) / 2 // two columns with gap
 
   const renderItems = report.questions.map((q) => {
     const sel = q.options.find((o) => o.key === q.selected)
     const cor = q.options.find((o) => o.key === q.correctAnswer)
     const yourAnswerText = q.selected ? `${q.selected}. ${sel?.text ?? ''}` : 'Not answered'
     const correctAnswerText = `${q.correctAnswer}. ${cor?.text ?? ''}`
-    return {
-      q,
-      sel,
-      cor,
-      yourAnswerText,
-      correctAnswerText,
-    }
+    return { q, sel, cor, yourAnswerText, correctAnswerText }
   })
 
-  const [questionImgs, yourAnswerImgs, correctAnswerImgs] = await Promise.all([
+  const [questionImgs, yourAnswerImgs, correctAnswerImgs, explanationImgs] = await Promise.all([
     renderBatch(
       renderItems.map((r) =>
         hasMath(r.q.text)
-          ? {
-              text: r.q.text,
-              options: {
-                fontSizePt: 9,
-                color: INK,
-                maxWidthPt: colWidths.question - 12,
-                paddingPx: 3,
-              },
-            }
+          ? { text: r.q.text, options: { fontSizePt: 10, color: INK, maxWidthPt: questionTextW, paddingPx: 3, lineHeight: 1.5 } }
           : null
       )
     ),
     renderBatch(
       renderItems.map((r) =>
         r.q.selected && hasMath(r.yourAnswerText)
-          ? {
-              text: r.yourAnswerText,
-              options: {
-                fontSizePt: 9,
-                color: INK,
-                maxWidthPt: colWidths.yourAnswer - 12,
-                paddingPx: 3,
-              },
-            }
+          ? { text: r.yourAnswerText, options: { fontSizePt: 9, color: INK, maxWidthPt: answerW - 16, paddingPx: 3, lineHeight: 1.4 } }
           : null
       )
     ),
     renderBatch(
       renderItems.map((r) =>
         hasMath(r.correctAnswerText)
-          ? {
-              text: r.correctAnswerText,
-              options: {
-                fontSizePt: 9,
-                color: INK,
-                maxWidthPt: colWidths.correctAnswer - 12,
-                paddingPx: 3,
-              },
-            }
+          ? { text: r.correctAnswerText, options: { fontSizePt: 9, color: GREEN, maxWidthPt: answerW - 16, paddingPx: 3, lineHeight: 1.4 } }
+          : null
+      )
+    ),
+    renderBatch(
+      renderItems.map((r) =>
+        r.q.explanation && hasMath(r.q.explanation)
+          ? { text: r.q.explanation, options: { fontSizePt: 8.5, color: MUTED, maxWidthPt: questionTextW - 24, paddingPx: 3, lineHeight: 1.4 } }
           : null
       )
     ),
   ])
 
-  const rows: QuestionRow[] = renderItems.map((r, i) => ({
+  const cards: QuestionCard[] = renderItems.map((r, i) => ({
     order: r.q.order,
     isCorrect: r.q.isCorrect,
     selected: r.q.selected,
@@ -278,165 +292,36 @@ async function downloadReportPdfInternal(report: AttemptReport): Promise<void> {
     yourAnswerText: r.yourAnswerText,
     correctAnswerImg: correctAnswerImgs[i] ?? null,
     correctAnswerText: r.correctAnswerText,
+    explanationImg: explanationImgs[i] ?? null,
+    explanationText: r.q.explanation ?? '',
     resultLabel: r.q.isCorrect ? 'Right' : r.q.selected ? 'Wrong' : 'Skipped',
   }))
 
-  // ---------- Question table (manual drawing for image support) ----------
-  y = drawQuestionTable(doc, rows, y, M, contentW, H)
+  // ── Section header ──────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...INK)
+  doc.text('Question by question', M, y)
+  y += 8
 
-  y += 30
-
-  // ---------- Review section for wrong / skipped ----------
-  const toReview = report.questions.filter((q) => !q.isCorrect)
-  if (toReview.length > 0) {
-    if (y > H - 140) {
-      doc.addPage()
-      y = 56
-    }
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(...INK)
-    doc.text('Review - questions to revisit', M, y)
-    y += 16
-
-    // Pre-render review math images
-    const reviewItems = toReview.map((q) => {
-      const cor = q.options.find((o) => o.key === q.correctAnswer)
-      return {
-        q,
-        cor,
-        headText: `Q${q.order}. ${q.text}`,
-        detailText: `Correct answer: ${q.correctAnswer}. ${cor?.text ?? ''}${q.selected ? '' : '  (you left this blank)'}`,
-        explText: q.explanation ? `Explanation: ${q.explanation}` : '',
-      }
-    })
-
-    const [headImgs, detailImgs, explImgs] = await Promise.all([
-      renderBatch(
-        reviewItems.map((r) =>
-          hasMath(r.headText)
-            ? {
-                text: r.headText,
-                options: {
-                  fontSizePt: 9,
-                  color: INK,
-                  maxWidthPt: contentW,
-                  bold: true,
-                  paddingPx: 3,
-                },
-              }
-            : null
-        )
-      ),
-      renderBatch(
-        reviewItems.map((r) =>
-          hasMath(r.detailText)
-            ? {
-                text: r.detailText,
-                options: {
-                  fontSizePt: 9,
-                  color: GREEN,
-                  maxWidthPt: contentW,
-                  paddingPx: 3,
-                },
-              }
-            : null
-        )
-      ),
-      renderBatch(
-        reviewItems.map((r) =>
-          r.explText && hasMath(r.explText)
-            ? {
-                text: r.explText,
-                options: {
-                  fontSizePt: 8.5,
-                  color: MUTED,
-                  maxWidthPt: contentW,
-                  paddingPx: 3,
-                },
-              }
-            : null
-        )
-      ),
-    ])
-
-    for (let i = 0; i < reviewItems.length; i++) {
-      const r = reviewItems[i]
-      const headImg = headImgs[i]
-      const detailImg = detailImgs[i]
-      const explImg = explImgs[i]
-
-      // Estimate block height
-      const headH = headImg ? headImg.heightPt : estimateTextHeight(doc, plain(r.headText), contentW, 9, 13)
-      const detailH = detailImg ? detailImg.heightPt : estimateTextHeight(doc, plain(r.detailText), contentW, 9, 13)
-      const explH = explImg
-        ? explImg.heightPt
-        : r.explText
-          ? estimateTextHeight(doc, plain(r.explText), contentW, 8.5, 11)
-          : 0
-      const blockH = headH + 13 + detailH + 13 + explH + 14
-
-      if (y + blockH > H - 56) {
-        doc.addPage()
-        y = 56
-      }
-
-      // Head
-      if (headImg) {
-        doc.addImage(headImg.dataUrl, 'PNG', M, y - 3, headImg.widthPt, headImg.heightPt)
-        y += headImg.heightPt
-      } else {
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(9)
-        doc.setTextColor(...INK)
-        const wrapped = doc.splitTextToSize(plain(r.headText), contentW)
-        doc.text(wrapped, M, y + 9)
-        y += wrapped.length * 13
-      }
-
-      // Detail
-      if (detailImg) {
-        doc.addImage(detailImg.dataUrl, 'PNG', M, y - 3, detailImg.widthPt, detailImg.heightPt)
-        y += detailImg.heightPt
-      } else {
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-        doc.setTextColor(...GREEN)
-        const wrapped = doc.splitTextToSize(plain(r.detailText), contentW)
-        doc.text(wrapped, M, y + 9)
-        y += wrapped.length * 13
-      }
-
-      // Explanation
-      if (r.explText) {
-        if (explImg) {
-          doc.addImage(explImg.dataUrl, 'PNG', M, y - 3, explImg.widthPt, explImg.heightPt)
-          y += explImg.heightPt
-        } else {
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(8.5)
-          doc.setTextColor(...MUTED)
-          const wrapped = doc.splitTextToSize(plain(r.explText), contentW)
-          doc.text(wrapped, M, y + 9)
-          y += wrapped.length * 11
-        }
-      }
-      y += 14
-    }
+  // ── Draw question cards ─────────────────────────────────────────────────
+  for (const card of cards) {
+    y = drawQuestionCard(doc, card, y, M, contentW, H, questionTextW, answerW)
+    y += 12
   }
 
-  // ---------- Footer on every page ----------
+  // ── Footer on every page ────────────────────────────────────────────────
   const pages = doc.getNumberOfPages()
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p)
     doc.setDrawColor(...LINE)
-    doc.setLineWidth(1)
-    doc.line(M, H - 44, W - M, H - 44)
+    doc.setLineWidth(0.5)
+    doc.line(M, H - 36, W - M, H - 36)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...MUTED)
-    doc.text("Generated by Noel's Test - instant report cards for every test", M, H - 30)
-    doc.text(`${p} / ${pages}`, W - M, H - 30, { align: 'right' })
+    doc.setFontSize(8)
+    doc.setTextColor(...LIGHT)
+    doc.text("Generated by Noel's Test", M, H - 22)
+    doc.text(`Page ${p} of ${pages}`, W - M, H - 22, { align: 'right' })
   }
 
   const slug = (s: string) =>
@@ -445,9 +330,214 @@ async function downloadReportPdfInternal(report: AttemptReport): Promise<void> {
   doc.save(`report-card-${slug(report.examTitle)}${student}.pdf`)
 }
 
-// ---------- Helpers ----------
+// ── Helper: draw a stat badge ───────────────────────────────────────────────
 
-/** Estimate the height (in pt) of plain text wrapped to a given width. */
+function drawStatBadge(
+  doc: import('jspdf').jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  label: string,
+  count: number,
+  color: [number, number, number],
+  bgColor: [number, number, number]
+): void {
+  doc.setFillColor(...bgColor)
+  doc.roundedRect(x, y, w, h, 4, 4, 'F')
+  doc.setDrawColor(...color)
+  doc.setLineWidth(0.5)
+  doc.roundedRect(x, y, w, h, 4, 4, 'S')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...color)
+  doc.text(String(count), x + 8, y + 15)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text(label, x + 8, y + 22)
+}
+
+// ── Helper: draw a question card ────────────────────────────────────────────
+
+function drawQuestionCard(
+  doc: import('jspdf').jsPDF,
+  card: QuestionCard,
+  startY: number,
+  marginX: number,
+  contentW: number,
+  pageH: number,
+  questionTextW: number,
+  answerW: number
+): number {
+  const padX = 14
+  const padY = 12
+  const cardW = contentW
+
+  // Determine colors based on result
+  const borderColor =
+    card.resultLabel === 'Right' ? GREEN : card.resultLabel === 'Wrong' ? RED : AMBER
+  const bgColor =
+    card.resultLabel === 'Right' ? GREEN_BG : card.resultLabel === 'Wrong' ? RED_BG : AMBER_BG
+
+  // Calculate card height
+  const qH = card.questionImg
+    ? card.questionImg.heightPt + 8
+    : estimateTextHeight(doc, plain(card.questionText), questionTextW, 10, 14)
+  const aH = Math.max(
+    card.yourAnswerImg ? card.yourAnswerImg.heightPt : estimateTextHeight(doc, card.selected ? plain(card.yourAnswerText) : 'Not answered', answerW - 16, 9, 13),
+    card.correctAnswerImg ? card.correctAnswerImg.heightPt : estimateTextHeight(doc, plain(card.correctAnswerText), answerW - 16, 9, 13)
+  )
+  const explH = card.explanationImg
+    ? card.explanationImg.heightPt + 8
+    : card.explanationText
+      ? estimateTextHeight(doc, plain(card.explanationText), questionTextW - 24, 8.5, 12) + 8
+      : 0
+
+  const cardH = padY + qH + 10 + aH + (explH > 0 ? explH + 8 : 0) + padY
+
+  // Page break if needed
+  let y = startY
+  if (y + cardH > pageH - 50) {
+    doc.addPage()
+    y = 56
+  }
+
+  // Card background
+  doc.setFillColor(...WHITE)
+  doc.roundedRect(marginX, y, cardW, cardH, 6, 6, 'F')
+
+  // Colored left border (4px wide)
+  doc.setFillColor(...borderColor)
+  doc.roundedRect(marginX, y, 4, cardH, 2, 2, 'F')
+
+  // Card outline (subtle)
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.5)
+  doc.roundedRect(marginX, y, cardW, cardH, 6, 6, 'S')
+
+  // ── Result badge (top-right) ────────────────────────────────────────────
+  const badgeW = 52
+  const badgeH = 18
+  const badgeX = marginX + cardW - badgeW - padX
+  const badgeY = y + padY - 4
+  doc.setFillColor(...bgColor)
+  doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 9, 9, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(...borderColor)
+  doc.text(card.resultLabel, badgeX + badgeW / 2, badgeY + 12, { align: 'center' })
+
+  // ── Question number + text ──────────────────────────────────────────────
+  const innerX = marginX + padX + 4 // +4 for the colored border
+  const innerW = cardW - padX * 2 - 4
+
+  let cy = y + padY + 4
+
+  // Q number
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(...LIGHT)
+  doc.text(`Q${card.order}`, innerX, cy + 10)
+
+  // Question text (image or native text)
+  const qTextX = innerX + 24
+  const qTextW = innerW - 24 - badgeW
+  if (card.questionImg) {
+    doc.addImage(card.questionImg.dataUrl, 'PNG', qTextX, cy, card.questionImg.widthPt, card.questionImg.heightPt)
+    cy += card.questionImg.heightPt + 4
+  } else {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(...INK)
+    const qLines = doc.splitTextToSize(plain(card.questionText), qTextW)
+    doc.text(qLines, qTextX, cy + 9)
+    cy += qLines.length * 14
+  }
+
+  cy += 8
+
+  // ── Answer columns ──────────────────────────────────────────────────────
+  const colH = Math.max(
+    card.yourAnswerImg ? card.yourAnswerImg.heightPt : 16,
+    card.correctAnswerImg ? card.correctAnswerImg.heightPt : 16,
+    16
+  )
+
+  // "Your answer" column
+  const yourX = innerX
+  const yourW = answerW
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text('YOUR ANSWER', yourX, cy + 8)
+
+  if (card.yourAnswerImg) {
+    doc.addImage(card.yourAnswerImg.dataUrl, 'PNG', yourX, cy + 12, card.yourAnswerImg.widthPt, card.yourAnswerImg.heightPt)
+  } else {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    const answerColor = card.isCorrect ? GREEN : card.selected ? RED : MUTED
+    doc.setTextColor(...answerColor)
+    const aLines = doc.splitTextToSize(
+      card.selected ? plain(card.yourAnswerText) : 'Not answered',
+      yourW - 16
+    )
+    doc.text(aLines, yourX, cy + 22)
+  }
+
+  // "Correct answer" column
+  const corX = innerX + yourW + 16
+  const corW = answerW
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text('CORRECT ANSWER', corX, cy + 8)
+
+  if (card.correctAnswerImg) {
+    doc.addImage(card.correctAnswerImg.dataUrl, 'PNG', corX, cy + 12, card.correctAnswerImg.widthPt, card.correctAnswerImg.heightPt)
+  } else {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...GREEN)
+    const cLines = doc.splitTextToSize(plain(card.correctAnswerText), corW - 16)
+    doc.text(cLines, corX, cy + 22)
+  }
+
+  cy += colH + 16
+
+  // ── Explanation (if present) ─────────────────────────────────────────────
+  if (card.explanationText || card.explanationImg) {
+    const explY = cy
+    const explH2 = card.explanationImg
+      ? card.explanationImg.heightPt + 8
+      : estimateTextHeight(doc, plain(card.explanationText), questionTextW - 24, 8.5, 12) + 8
+
+    doc.setFillColor(...BG)
+    doc.roundedRect(innerX, explY, innerW, explH2 + 8, 4, 4, 'F')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.setTextColor(...MUTED)
+    doc.text('EXPLANATION', innerX + 8, explY + 12)
+
+    if (card.explanationImg) {
+      doc.addImage(card.explanationImg.dataUrl, 'PNG', innerX + 8, explY + 16, card.explanationImg.widthPt, card.explanationImg.heightPt)
+    } else {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(...MUTED)
+      const eLines = doc.splitTextToSize(plain(card.explanationText), innerW - 16)
+      doc.text(eLines, innerX + 8, explY + 22)
+    }
+  }
+
+  return y + cardH
+}
+
+// ── Helper: estimate text height ────────────────────────────────────────────
+
 function estimateTextHeight(
   doc: { splitTextToSize: (t: string, w: number) => string[] },
   text: string,
@@ -459,208 +549,8 @@ function estimateTextHeight(
   return lines.length * lineHeight
 }
 
-/**
- * Draws the question table manually so we can embed rendered math images in
- * cells. Returns the y position after the table.
- */
-function drawQuestionTable(
-  doc: import('jspdf').jsPDF,
-  rows: QuestionRow[],
-  startY: number,
-  marginX: number,
-  contentW: number,
-  pageH: number
-): number {
-  const W = doc.internal.pageSize.getWidth()
-  const colWidths = {
-    num: 26,
-    question: contentW - 26 - 118 - 118 - 52,
-    yourAnswer: 118,
-    correctAnswer: 118,
-    result: 52,
-  }
-  const cols = [
-    { key: 'num', w: colWidths.num, label: '#' },
-    { key: 'question', w: colWidths.question, label: 'Question' },
-    { key: 'yourAnswer', w: colWidths.yourAnswer, label: 'Your answer' },
-    { key: 'correctAnswer', w: colWidths.correctAnswer, label: 'Correct answer' },
-    { key: 'result', w: colWidths.result, label: 'Result' },
-  ]
-  const padX = 6
-  const padY = 6
-  const fontSize = 8.5
-  const headerFontSize = 8
-  const minRowHeight = 24
+// ── Last-resort text-only fallback ──────────────────────────────────────────
 
-  let y = startY
-
-  // ---- Header row ----
-  const headerH = 22
-  doc.setFillColor(...INK)
-  doc.rect(marginX, y, contentW, headerH, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(headerFontSize)
-  doc.setTextColor(...WHITE)
-  let x = marginX
-  for (const col of cols) {
-    let align: 'left' | 'center' = 'left'
-    if (col.key === 'num' || col.key === 'result') align = 'center'
-    const textX = align === 'center' ? x + col.w / 2 : x + padX
-    doc.text(col.label, textX, y + headerH / 2 + headerFontSize / 3, {
-      align: align === 'center' ? 'center' : 'left',
-    })
-    x += col.w
-  }
-  y += headerH
-
-  // ---- Body rows ----
-  for (const row of rows) {
-    // Compute row height from the tallest cell.
-    const cellHeights: number[] = []
-
-    // # column: just a number, single line
-    cellHeights.push(minRowHeight)
-
-    // Question column
-    if (row.questionImg) {
-      cellHeights.push(Math.max(minRowHeight, row.questionImg.heightPt + padY * 2))
-    } else {
-      const lines = doc.splitTextToSize(plain(row.questionText), colWidths.question - padX * 2)
-      cellHeights.push(Math.max(minRowHeight, lines.length * (fontSize + 3) + padY * 2))
-    }
-
-    // Your answer
-    if (row.yourAnswerImg) {
-      cellHeights.push(Math.max(minRowHeight, row.yourAnswerImg.heightPt + padY * 2))
-    } else {
-      const txt = row.selected ? plain(row.yourAnswerText) : 'Not answered'
-      const lines = doc.splitTextToSize(txt, colWidths.yourAnswer - padX * 2)
-      cellHeights.push(Math.max(minRowHeight, lines.length * (fontSize + 3) + padY * 2))
-    }
-
-    // Correct answer
-    if (row.correctAnswerImg) {
-      cellHeights.push(Math.max(minRowHeight, row.correctAnswerImg.heightPt + padY * 2))
-    } else {
-      const lines = doc.splitTextToSize(plain(row.correctAnswerText), colWidths.correctAnswer - padX * 2)
-      cellHeights.push(Math.max(minRowHeight, lines.length * (fontSize + 3) + padY * 2))
-    }
-
-    // Result: single word
-    cellHeights.push(minRowHeight)
-
-    const rowH = Math.max(...cellHeights)
-
-    // Page break if needed
-    if (y + rowH > pageH - 56) {
-      doc.addPage()
-      y = 56
-      // Re-draw header on new page
-      doc.setFillColor(...INK)
-      doc.rect(marginX, y, contentW, headerH, 'F')
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(headerFontSize)
-      doc.setTextColor(...WHITE)
-      let hx = marginX
-      for (const col of cols) {
-        const align = col.key === 'num' || col.key === 'result' ? 'center' : 'left'
-        const textX = align === 'center' ? hx + col.w / 2 : hx + padX
-        doc.text(col.label, textX, y + headerH / 2 + headerFontSize / 3, {
-          align: align === 'center' ? 'center' : 'left',
-        })
-        hx += col.w
-      }
-      y += headerH
-    }
-
-    // Row background
-    const fillColor =
-      row.resultLabel === 'Right'
-        ? SOFT_GREEN
-        : row.resultLabel === 'Wrong'
-          ? SOFT_RED
-          : WHITE
-    doc.setFillColor(...fillColor)
-    doc.rect(marginX, y, contentW, rowH, 'F')
-
-    // Row borders
-    doc.setDrawColor(...LINE)
-    doc.setLineWidth(0.5)
-    let bx = marginX
-    for (const col of cols) {
-      doc.rect(bx, y, col.w, rowH, 'S')
-      bx += col.w
-    }
-
-    // Cell content
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(fontSize)
-
-    let cx = marginX
-    for (const col of cols) {
-      const innerX = cx + padX
-      const innerY = y + padY
-      const innerW = col.w - padX * 2
-
-      if (col.key === 'num') {
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...MUTED)
-        doc.text(String(row.order), cx + col.w / 2, y + rowH / 2 + fontSize / 3, {
-          align: 'center',
-        })
-      } else if (col.key === 'question') {
-        if (row.questionImg) {
-          // Vertically center the image in the cell.
-          const imgY = y + (rowH - row.questionImg.heightPt) / 2
-          doc.addImage(row.questionImg.dataUrl, 'PNG', innerX, imgY, row.questionImg.widthPt, row.questionImg.heightPt)
-        } else {
-          doc.setTextColor(...INK)
-          const lines = doc.splitTextToSize(plain(row.questionText), innerW)
-          doc.text(lines, innerX, innerY + fontSize)
-        }
-      } else if (col.key === 'yourAnswer') {
-        if (row.yourAnswerImg) {
-          const imgY = y + (rowH - row.yourAnswerImg.heightPt) / 2
-          doc.addImage(row.yourAnswerImg.dataUrl, 'PNG', innerX, imgY, row.yourAnswerImg.widthPt, row.yourAnswerImg.heightPt)
-        } else {
-          doc.setTextColor(...INK)
-          const txt = row.selected ? plain(row.yourAnswerText) : 'Not answered'
-          const lines = doc.splitTextToSize(txt, innerW)
-          doc.text(lines, innerX, innerY + fontSize)
-        }
-      } else if (col.key === 'correctAnswer') {
-        if (row.correctAnswerImg) {
-          const imgY = y + (rowH - row.correctAnswerImg.heightPt) / 2
-          doc.addImage(row.correctAnswerImg.dataUrl, 'PNG', innerX, imgY, row.correctAnswerImg.widthPt, row.correctAnswerImg.heightPt)
-        } else {
-          doc.setTextColor(...INK)
-          const lines = doc.splitTextToSize(plain(row.correctAnswerText), innerW)
-          doc.text(lines, innerX, innerY + fontSize)
-        }
-      } else if (col.key === 'result') {
-        const color = row.resultLabel === 'Right' ? GREEN : row.resultLabel === 'Wrong' ? RED : MUTED
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...color)
-        doc.text(row.resultLabel, cx + col.w / 2, y + rowH / 2 + fontSize / 3, {
-          align: 'center',
-        })
-        doc.setFont('helvetica', 'normal')
-      }
-
-      cx += col.w
-    }
-
-    y += rowH
-  }
-
-  return y
-}
-
-/**
- * Last-resort fallback: a minimal text-only PDF using the plain() text
- * converter (no KaTeX image rendering). Used when the main renderer throws
- * so the user always gets *something* downloadable.
- */
 async function downloadReportPdfFallback(report: AttemptReport): Promise<void> {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
@@ -669,88 +559,58 @@ async function downloadReportPdfFallback(report: AttemptReport): Promise<void> {
   const M = 48
   const contentW = W - M * 2
 
+  doc.setFillColor(...DARK)
+  doc.rect(0, 0, W, 72, 'F')
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.setTextColor(24, 24, 27)
-  doc.text("Noel's Test", M, 56)
-
+  doc.setFontSize(16)
+  doc.setTextColor(...WHITE)
+  doc.text('REPORT CARD', M, 36)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(113, 113, 122)
-  doc.text('REPORT CARD (text-only fallback)', W - M, 56, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setTextColor(160, 160, 170)
+  doc.text('Text-only fallback (math rendering unavailable)', M, 54)
 
-  doc.setDrawColor(228, 228, 231)
-  doc.setLineWidth(1)
-  doc.line(M, 68, W - M, 68)
-
+  let y = 100
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(17)
-  doc.setTextColor(24, 24, 27)
-  const titleLines = doc.splitTextToSize(plain(report.examTitle), contentW)
-  doc.text(titleLines, M, 98)
-  let y = 98 + titleLines.length * 21
+  doc.setTextColor(...INK)
+  doc.text(plain(report.examTitle), M, y)
+  y += 24
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9.5)
-  doc.setTextColor(113, 113, 122)
+  doc.setTextColor(...MUTED)
   const pct = report.total > 0 ? Math.round((report.score / report.total) * 100) : 0
-  const meta = [
-    report.studentName !== 'Anonymous' ? report.studentName : null,
-    new Date(report.createdAt).toLocaleString(),
-    `Score ${report.score}/${report.total} (${pct}%)`,
-    report.autoSubmitted ? 'Auto-submitted' : null,
-  ]
-    .filter(Boolean)
-    .join('   ·   ')
-  doc.text(meta, M, y)
+  doc.text(`Score: ${report.score}/${report.total} (${pct}%)`, M, y)
   y += 24
 
   for (const q of report.questions) {
-    if (y > H - 80) {
-      doc.addPage()
-      y = 56
-    }
+    if (y > H - 80) { doc.addPage(); y = 56 }
     const sel = q.options.find((o) => o.key === q.selected)
     const cor = q.options.find((o) => o.key === q.correctAnswer)
     const status = q.isCorrect ? 'Right' : q.selected ? 'Wrong' : 'Skipped'
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.setTextColor(24, 24, 27)
-    doc.text(`Q${q.order}. ${plain(q.text)}`, M, y)
-    y += 14
+    doc.setTextColor(...INK)
+    doc.text(`Q${q.order}. ${plain(q.text)}`, M, y); y += 14
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(113, 113, 122)
-    doc.text(
-      `Your answer: ${q.selected ? `${q.selected}. ${plain(sel?.text ?? '')}` : 'Not answered'}`,
-      M,
-      y
-    )
-    y += 12
-    doc.text(`Correct answer: ${q.correctAnswer}. ${plain(cor?.text ?? '')}`, M, y)
-    y += 12
-    const resultColor: [number, number, number] = q.isCorrect
-      ? [5, 150, 105]
-      : q.selected
-        ? [220, 38, 38]
-        : [113, 113, 122]
-    doc.setTextColor(...resultColor)
-    doc.text(`Result: ${status}`, M, y)
-    y += 16
+    doc.setTextColor(...MUTED)
+    doc.text(`Your answer: ${q.selected ? `${q.selected}. ${plain(sel?.text ?? '')}` : 'Not answered'}`, M, y); y += 12
+    doc.text(`Correct: ${q.correctAnswer}. ${plain(cor?.text ?? '')}`, M, y); y += 12
+    doc.setTextColor(...(q.isCorrect ? GREEN : q.selected ? RED : MUTED))
+    doc.text(`Result: ${status}`, M, y); y += 16
 
     if (q.explanation) {
-      doc.setTextColor(113, 113, 122)
-      doc.setFontSize(8.5)
-      const explLines = doc.splitTextToSize(`Explanation: ${plain(q.explanation)}`, contentW)
-      doc.text(explLines, M, y)
-      y += explLines.length * 11 + 8
+      doc.setTextColor(...MUTED); doc.setFontSize(8.5)
+      const lines = doc.splitTextToSize(`Explanation: ${plain(q.explanation)}`, contentW)
+      doc.text(lines, M, y); y += lines.length * 11 + 8
     }
   }
 
-  const slug = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
   const student = report.studentName !== 'Anonymous' ? `-${slug(report.studentName)}` : ''
   doc.save(`report-card-${slug(report.examTitle)}${student}.pdf`)
 }

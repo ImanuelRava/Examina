@@ -1,30 +1,30 @@
 'use client'
 
-import katex from 'katex'
 import html2canvas from 'html2canvas'
 
 /**
- * Renders text containing LaTeX math (delimited by $...$ or $$...$$) into a
- * PNG image suitable for embedding in a jsPDF document.
+ * Renders text containing LaTeX math into PNG images for PDF embedding.
  *
- * Uses html2canvas (NOT html-to-image). html2canvas rasterizes the DOM
- * directly using the browser's own rendering — it doesn't try to embed
- * fonts into an SVG foreignObject, which avoids the KaTeX font-loading
- * race conditions and CORS issues that plague html-to-image.
+ * STRATEGY: Use MathJax (loaded from CDN) to convert LaTeX → SVG. MathJax's
+ * SVG output embeds all glyph paths inline — zero font dependencies. This
+ * avoids the KaTeX web-font loading race conditions that plagued earlier
+ * attempts with html-to-image and html2canvas.
  *
  * Pipeline:
- * 1. Insert an offscreen container with the rendered KaTeX HTML.
- * 2. Wait for document.fonts.ready (KaTeX fonts are loaded globally via
- *    katex.min.css in layout.tsx).
- * 3. Force a synchronous reflow.
- * 4. html2canvas rasterizes the container to a <canvas>.
- * 5. Convert canvas to PNG data URL, measure in PDF points, return.
+ * 1. Load MathJax from CDN (tex-svg bundle, ~1MB, cached after first load).
+ * 2. Parse text into segments: plain text vs math ($...$ / $$...$$).
+ * 3. For math segments: MathJax.tex2svg() → self-contained SVG string.
+ * 4. Build an HTML container with plain text + inline SVGs.
+ * 5. Capture with html2canvas (works reliably because SVGs are self-contained
+ *    and plain text uses system fonts that are already loaded).
+ * 6. Return PNG data URL + dimensions in PDF points.
  *
- * Results are cached per (text + options) key so repeated equations in the
- * same report don't re-render.
+ * Fallback: if MathJax fails to load or rendering errors, returns null →
+ * caller falls back to jsPDF native text with plain-text LaTeX stripping.
  */
 
-const PX_TO_PT = 0.75 // 96 DPI CSS pixels → PDF points
+const PX_TO_PT = 0.75
+const MATHJAX_CDN = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
 
 export interface RenderedImage {
   dataUrl: string
@@ -48,6 +48,67 @@ export function hasMath(text: string): boolean {
   return /\$[^$]/.test(text ?? '')
 }
 
+// ── MathJax loading ─────────────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    MathJax?: any
+  }
+}
+
+let mathJaxPromise: Promise<any> | null = null
+
+function loadMathJax(): Promise<any> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('SSR'))
+  if (window.MathJax && window.MathJax.tex2svg) return Promise.resolve(window.MathJax)
+  if (mathJaxPromise) return mathJaxPromise
+
+  mathJaxPromise = new Promise((resolve, reject) => {
+    // Configure before loading
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$']],
+        displayMath: [['$$', '$$']],
+      },
+      svg: { fontCache: 'local' }, // 'local' = each SVG is self-contained
+      startup: {
+        ready: () => {
+          window.MathJax.startup.defaultReady()
+        },
+      },
+    }
+
+    const script = document.createElement('script')
+    script.src = MATHJAX_CDN
+    script.async = true
+    script.onload = () => {
+      // MathJax processes async — wait for startup to complete
+      if (window.MathJax && window.MathJax.startup) {
+        window.MathJax.startup.promise.then(() => resolve(window.MathJax))
+      } else {
+        // Fallback: poll for tex2svg
+        let attempts = 0
+        const poll = setInterval(() => {
+          attempts++
+          if (window.MathJax && window.MathJax.tex2svg) {
+            clearInterval(poll)
+            resolve(window.MathJax)
+          } else if (attempts > 50) {
+            clearInterval(poll)
+            reject(new Error('MathJax failed to initialize'))
+          }
+        }, 100)
+      }
+    }
+    script.onerror = () => reject(new Error('Failed to load MathJax CDN'))
+    document.head.appendChild(script)
+  })
+
+  return mathJaxPromise
+}
+
+// ── LaTeX parsing & rendering ───────────────────────────────────────────────
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -56,20 +117,33 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function renderMathSegment(tex: string, displayMode: boolean): string {
+function escapeLatex(tex: string): string {
+  // Escape special chars for MathJax
+  return tex
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+async function renderMathSegment(tex: string, displayMode: boolean): Promise<string> {
   try {
-    return katex.renderToString(tex, {
-      throwOnError: false,
-      displayMode,
-      output: 'html',
-      strict: false,
-    })
-  } catch {
-    return escapeHtml(tex)
+    const MathJax = await loadMathJax()
+    const svgElement = MathJax.tex2svg(escapeLatex(tex), { display: displayMode })
+    // Serialize the SVG element to string
+    const svgString = new XMLSerializer().serializeToString(svgElement)
+    // Set explicit width/height if not present (MathJax sometimes omits them)
+    return svgString
+  } catch (err) {
+    console.warn('MathJax render failed for:', tex, err)
+    return `<span style="color:#999">${escapeHtml(tex)}</span>`
   }
 }
 
-function renderMixedMathToHtml(text: string): string {
+/**
+ * Parse text with $...$ / $$...$$ delimiters and produce HTML with
+ * inline MathJax SVGs for math segments and escaped text for plain segments.
+ */
+async function renderMixedMathToHtml(text: string): Promise<string> {
   const src = text ?? ''
   let out = ''
   let i = 0
@@ -84,22 +158,24 @@ function renderMixedMathToHtml(text: string): string {
     }
 
     if (dd !== -1 && (sd === -1 || dd <= sd)) {
+      // Display math $$...$$
       const end = src.indexOf('$$', dd + 2)
       if (end === -1) {
         out += escapeHtml(src.slice(i))
         break
       }
       out += escapeHtml(src.slice(i, dd))
-      out += renderMathSegment(src.slice(dd + 2, end), true)
+      out += await renderMathSegment(src.slice(dd + 2, end), true)
       i = end + 2
     } else {
+      // Inline math $...$
       const end = src.indexOf('$', sd + 1)
       if (end === -1) {
         out += escapeHtml(src.slice(i))
         break
       }
       out += escapeHtml(src.slice(i, sd))
-      out += renderMathSegment(src.slice(sd + 1, end), false)
+      out += await renderMathSegment(src.slice(sd + 1, end), false)
       i = end + 1
     }
   }
@@ -107,43 +183,9 @@ function renderMixedMathToHtml(text: string): string {
   return out
 }
 
+// ── Main render function ────────────────────────────────────────────────────
+
 const cache = new Map<string, RenderedImage | null>()
-
-// KaTeX font families that need to be preloaded before image capture.
-const KATEX_FONT_FAMILIES = [
-  'KaTeX_Main',
-  'KaTeX_Math',
-  'KaTeX_Caligraphic',
-  'KaTeX_Fraktur',
-  'KaTeX_SansSerif',
-  'KaTeX_Script',
-  'KaTeX_Typewriter',
-  'KaTeX_Size1',
-  'KaTeX_Size2',
-  'KaTeX_Size3',
-  'KaTeX_Size4',
-  'KaTeX_AMS',
-]
-
-let katexFontsLoaded = false
-
-async function preloadKatexFonts(): Promise<void> {
-  if (katexFontsLoaded) return
-  if (typeof document === 'undefined' || !('fonts' in document)) return
-
-  try {
-    await Promise.all(
-      KATEX_FONT_FAMILIES.flatMap((family) => [
-        document.fonts.load(`normal 16px "${family}"`),
-        document.fonts.load(`italic 16px "${family}"`),
-      ])
-    )
-    await document.fonts.ready
-    katexFontsLoaded = true
-  } catch {
-    // Non-fatal — proceed with whatever fonts are available.
-  }
-}
 
 export async function renderTextWithMath(
   text: string,
@@ -152,15 +194,14 @@ export async function renderTextWithMath(
   const key = JSON.stringify({ text, ...options })
   if (cache.has(key)) return cache.get(key) ?? null
 
-  // Time budget: if rendering takes longer than 8 seconds, give up and
-  // fall back to plain text. Better to ship a PDF with text than no PDF.
+  // 8-second timeout — better to fall back to text than hang forever
   const TIMEOUT_MS = 8000
 
   const result = await Promise.race([
     renderInternal(text, options),
     new Promise<RenderedImage | null>((resolve) =>
       setTimeout(() => {
-        console.warn('Math render timed out for:', text)
+        console.warn('Math render timed out for:', text.slice(0, 50))
         resolve(null)
       }, TIMEOUT_MS)
     ),
@@ -181,7 +222,10 @@ async function renderInternal(
     : '#ffffff'
   const fontFamily =
     options.fontFamily ?? 'Helvetica, Arial, "Liberation Sans", sans-serif'
-  const lineHeight = options.lineHeight ?? 1.4
+  const lineHeight = options.lineHeight ?? 1.5
+
+  // Build the HTML with inline MathJax SVGs
+  const innerHtml = await renderMixedMathToHtml(text)
 
   const container = document.createElement('div')
   container.style.position = 'fixed'
@@ -200,15 +244,27 @@ async function renderInternal(
   container.style.overflowWrap = 'break-word'
   container.style.boxSizing = 'content-box'
   container.style.display = 'inline-block'
+  // Ensure SVGs render inline with text
+  container.style.verticalAlign = 'baseline'
   if (options.maxWidthPt != null) {
     container.style.maxWidth = `${options.maxWidthPt}pt`
   }
 
-  container.innerHTML = renderMixedMathToHtml(text)
+  container.innerHTML = innerHtml
+
+  // Style all inline SVGs to be vertically aligned with text
+  const svgs = container.querySelectorAll('svg')
+  svgs.forEach((svg) => {
+    svg.style.verticalAlign = 'middle'
+    svg.style.display = 'inline-block'
+    svg.style.maxWidth = '100%'
+    svg.style.height = 'auto'
+  })
+
   document.body.appendChild(container)
 
   try {
-    await preloadKatexFonts()
+    // Wait for layout to settle
     void container.offsetHeight
     await new Promise((r) => setTimeout(r, 50))
 
@@ -224,18 +280,18 @@ async function renderInternal(
     const heightPt = (canvas.height / 2) * PX_TO_PT
 
     if (widthPt < 2 || heightPt < 2) {
-      console.warn('Math render produced empty image for:', text)
+      console.warn('Math render produced empty image for:', text.slice(0, 50))
       return null
     }
 
     if (dataUrl.length < 200) {
-      console.warn('Math render produced suspiciously small PNG for:', text)
+      console.warn('Math render produced suspiciously small PNG for:', text.slice(0, 50))
       return null
     }
 
     return { dataUrl, widthPt, heightPt }
   } catch (err) {
-    console.warn('Math render failed for:', text, err)
+    console.warn('Math render failed for:', text.slice(0, 50), err)
     return null
   } finally {
     document.body.removeChild(container)
@@ -245,6 +301,13 @@ async function renderInternal(
 export async function renderBatch(
   items: Array<{ text: string; options: RenderOptions } | null>
 ): Promise<Array<RenderedImage | null>> {
+  // Pre-load MathJax before rendering anything
+  try {
+    await loadMathJax()
+  } catch {
+    // Will fall back to text per-item
+  }
+
   return Promise.all(
     items.map(async (item) => {
       if (!item || !hasMath(item.text)) return null

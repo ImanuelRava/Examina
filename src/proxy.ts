@@ -22,15 +22,15 @@ export function proxy(_req: NextRequest) {
   res.headers.set('X-Content-Type-Options', 'nosniff')
   res.headers.set('X-Frame-Options', 'DENY')
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Allow same-origin scripts only (KaTeX, jsPDF, etc. all same-origin).
+  // Allow same-origin scripts + MathJax CDN (used for PDF math rendering).
   res.headers.set(
     'Content-Security-Policy',
     "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
       "style-src 'self' 'unsafe-inline'; " +
       "img-src 'self' data: blob:; " +
       "font-src 'self' data:; " +
-      "connect-src 'self'; " +
+      "connect-src 'self' https://cdn.jsdelivr.net; " +
       "frame-ancestors 'none'; " +
       "base-uri 'self'"
   )
