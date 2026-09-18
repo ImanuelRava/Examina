@@ -5,12 +5,18 @@ import { NextRequest, NextResponse } from 'next/server'
  * Lightweight admin authentication:
  * HMAC-signed expiry token stored in an HttpOnly cookie.
  *
- * Required environment variables:
+ * Required environment variables (set in your Vercel project settings,
+ * scoped to Production / Preview environments):
  *   - ADMIN_PASSWORD  (plaintext password the admin types at /admin)
  *   - ADMIN_SECRET    (>= 32-char random string used to sign the session cookie)
  *
- * The app REFUSES TO BOOT in production if either is missing or weak.
- * In development, a clearly-marked dev fallback is used so first-run DX still works.
+ * In production, the FIRST REQUEST that touches auth will fail with a clear
+ * error if either env var is missing or weak. We do NOT throw at module-load
+ * time, because Vercel runs `next build` without runtime env vars injected,
+ * and an eager throw would break the build.
+ *
+ * In development, clearly-marked dev fallbacks are used so `next dev` works
+ * out of the box without any env setup.
  */
 
 export const ADMIN_COOKIE = 'examina_admin'
@@ -18,20 +24,33 @@ const WEEK_SECONDS = 60 * 60 * 24 * 7
 
 const isProduction = process.env.NODE_ENV === 'production'
 
-// -- Secret resolution -------------------------------------------------------
-// In production: hard-fail if env vars are missing or weak.
-// In dev: fall back to a clearly-marked dev secret so `next dev` still works.
+// -- Lazy secret resolution --------------------------------------------------
+// Vercel only injects runtime env vars at request time, NOT at build time.
+// So we must NOT call resolveSecret() at module top-level — otherwise the
+// "Collecting page data" build step would throw on every deploy that hasn't
+// added ADMIN_SECRET as a build env var (which is the correct setup: secrets
+// should be runtime-only).
+//
+// We resolve once per cold start (the first request), then cache.
+
+let cachedSecret: string | null = null
+let cachedPassword: string | null = null
 
 function resolveSecret(): string {
+  if (cachedSecret !== null) return cachedSecret
+
   const raw = process.env.ADMIN_SECRET
   if (!raw) {
     if (isProduction) {
       throw new Error(
         'ADMIN_SECRET environment variable is required in production. ' +
-          'Generate one with `openssl rand -hex 32` and set it in your deployment env.'
+          'Generate one with `openssl rand -hex 32` and set it in your Vercel project ' +
+          '(Settings → Environment Variables), scoped to Production + Preview. ' +
+          'Make sure it is NOT marked as a build-only var.'
       )
     }
-    return 'examina-dev-secret-change-me'
+    cachedSecret = 'examina-dev-secret-change-me'
+    return cachedSecret
   }
   if (isProduction && raw.length < 32) {
     throw new Error(
@@ -39,30 +58,31 @@ function resolveSecret(): string {
         'Generate one with `openssl rand -hex 32`.'
     )
   }
-  return raw
+  cachedSecret = raw
+  return cachedSecret
 }
 
 function resolvePassword(): string {
+  if (cachedPassword !== null) return cachedPassword
+
   const raw = process.env.ADMIN_PASSWORD
   if (!raw) {
     if (isProduction) {
       throw new Error(
-        'ADMIN_PASSWORD environment variable is required in production.'
+        'ADMIN_PASSWORD environment variable is required in production. ' +
+          'Set it in your Vercel project (Settings → Environment Variables), ' +
+          'scoped to Production + Preview. Make sure it is NOT marked as a build-only var.'
       )
     }
-    return 'examina-admin'
+    cachedPassword = 'examina-admin'
+    return cachedPassword
   }
   if (isProduction && raw.length < 8) {
     throw new Error('ADMIN_PASSWORD must be at least 8 characters in production.')
   }
-  return raw
+  cachedPassword = raw
+  return cachedPassword
 }
-
-// Eager resolution: if envs are missing in prod, the very first request
-// throws and the deployment shows a clear error instead of silently running
-// with weak defaults.
-const SECRET = resolveSecret()
-const ADMIN_PASSWORD = resolvePassword()
 
 // -- Cookie options ----------------------------------------------------------
 
@@ -83,7 +103,6 @@ export function adminCookieOptions(maxAgeSeconds: number = WEEK_SECONDS): Cookie
     maxAge: maxAgeSeconds,
     // In production we require HTTPS. `secure: true` prevents the cookie
     // from being sent over plain HTTP, mitigating accidental cleartext leaks.
-    // On Vercel, `VERCEL` env var is set; we also respect `HTTPS=1`.
     secure: isProduction,
   }
 }
@@ -91,7 +110,7 @@ export function adminCookieOptions(maxAgeSeconds: number = WEEK_SECONDS): Cookie
 // -- HMAC token primitives ---------------------------------------------------
 
 function sign(payload: string): string {
-  return createHmac('sha256', SECRET).update(payload).digest('hex')
+  return createHmac('sha256', resolveSecret()).update(payload).digest('hex')
 }
 
 export function createAdminToken(): string {
@@ -117,7 +136,7 @@ export function verifyAdminToken(token: string | undefined | null): boolean {
 export function checkPassword(input: unknown): boolean {
   const given = typeof input === 'string' ? input : ''
   const a = Buffer.from(given)
-  const b = Buffer.from(ADMIN_PASSWORD)
+  const b = Buffer.from(resolvePassword())
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
