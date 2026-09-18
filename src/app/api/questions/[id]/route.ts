@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guardAdmin } from '@/lib/auth'
-import { normalizeOptions, RawOption } from '@/lib/answer-key'
+import { normalizeOptions, RawOption } from '@/lib/options'
 
 export const dynamic = 'force-dynamic'
 

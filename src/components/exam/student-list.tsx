@@ -1,14 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ArrowRight, FileText, Loader2 } from 'lucide-react'
 import { api, ExamSummary } from './types'
 
-interface StudentExamListProps {
-  onStart: (examId: string) => void
-}
-
-export function StudentExamList({ onStart }: StudentExamListProps) {
+export function StudentExamList() {
+  const router = useRouter()
   const [exams, setExams] = useState<ExamSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,7 +64,7 @@ export function StudentExamList({ onStart }: StudentExamListProps) {
       {exams.map((exam) => (
         <button
           key={exam.id}
-          onClick={() => onStart(exam.id)}
+          onClick={() => router.push(`/exams/${exam.id}/take`)}
           disabled={exam.questionCount === 0}
           className="group flex w-full items-center justify-between gap-4 rounded-xl border border-zinc-200 p-5 text-left transition-colors hover:border-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-zinc-200 sm:p-6"
         >

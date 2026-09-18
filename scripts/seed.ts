@@ -1,6 +1,6 @@
 /**
  * Seeds one demo exam so the platform can be tried immediately.
- * Run: bun /home/z/my-project/scripts/seed.ts
+ * Run: bun run scripts/seed.ts
  */
 import { PrismaClient } from '@prisma/client'
 

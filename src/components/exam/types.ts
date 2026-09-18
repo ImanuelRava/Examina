@@ -81,18 +81,6 @@ export interface AttemptRow {
   examTitle: string
 }
 
-export interface AnswerKeyResult {
-  ok: true
-  fileName: string
-  format: 'json' | 'text'
-  parsedCount: number
-  appliedCount: number
-  updatedCount: number
-  applied: { no: number; answer: string }[]
-  issues: string[]
-  warnings: string[]
-}
-
 /** Small fetch wrapper - throws readable errors from API JSON responses. */
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Loader2 } from 'lucide-react'
 import { api, StudentExam } from './types'
 import { MathText } from './math-text'
@@ -21,7 +22,6 @@ import { useToast } from '@/hooks/use-toast'
 
 interface ExamTakerProps {
   examId: string
-  onSubmitted: (attemptId: string) => void
 }
 
 function fmtClock(totalSeconds: number): string {
@@ -30,7 +30,8 @@ function fmtClock(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export function ExamTaker({ examId, onSubmitted }: ExamTakerProps) {
+export function ExamTaker({ examId }: ExamTakerProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [exam, setExam] = useState<StudentExam | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -72,7 +73,7 @@ export function ExamTaker({ examId, onSubmitted }: ExamTakerProps) {
       if (auto) {
         toast({ title: "Time's up", description: 'Your exam was submitted automatically.' })
       }
-      onSubmitted(attemptId)
+      router.push(`/attempts/${attemptId}`)
     } catch (err) {
       toast({ title: 'Submission failed', description: (err as Error).message, variant: 'destructive' })
       submitLockRef.current = false
@@ -89,7 +90,6 @@ export function ExamTaker({ examId, onSubmitted }: ExamTakerProps) {
     }
     const t = setTimeout(() => setRemaining((r) => (r === null ? null : r - 1)), 1000)
     return () => clearTimeout(t)
-     
   }, [phase, remaining])
 
   function startExam() {

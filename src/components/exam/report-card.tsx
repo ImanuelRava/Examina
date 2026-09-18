@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, Download, Loader2, Minus, RotateCcw, X } from 'lucide-react'
 import { api, AttemptReport, formatDuration } from './types'
 import { MathText } from './math-text'
@@ -10,13 +11,12 @@ import { useToast } from '@/hooks/use-toast'
 
 interface ReportCardProps {
   attemptId: string
-  onBack: () => void
-  backLabel?: string
-  /** Omit in admin context - admins view reports, they don't retake exams. */
-  onRetake?: (examId: string) => void
 }
 
-export function ReportCard({ attemptId, onBack, backLabel = 'Back to exams', onRetake }: ReportCardProps) {
+export function ReportCard({ attemptId }: ReportCardProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromAdmin = searchParams.get('from') === 'admin'
   const { toast } = useToast()
   const [report, setReport] = useState<AttemptReport | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +68,9 @@ export function ReportCard({ attemptId, onBack, backLabel = 'Back to exams', onR
   const R = 52
   const CIRC = 2 * Math.PI * R
   const ringColor = pct >= 50 ? 'stroke-emerald-500' : 'stroke-red-500'
+
+  const backLabel = fromAdmin ? 'Back to results' : 'Back to exams'
+  const onBack = () => router.push(fromAdmin ? '/admin/results' : '/exams')
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -208,8 +211,8 @@ export function ReportCard({ attemptId, onBack, backLabel = 'Back to exams', onR
 
       {/* Actions */}
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-        {onRetake && (
-          <Button onClick={() => onRetake(report.examId)} className="h-11 sm:px-8">
+        {!fromAdmin && (
+          <Button onClick={() => router.push(`/exams/${report.examId}/take`)} className="h-11 sm:px-8">
             <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Retake exam
           </Button>

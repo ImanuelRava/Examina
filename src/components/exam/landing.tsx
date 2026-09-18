@@ -1,12 +1,7 @@
-'use client'
-
+import Link from 'next/link'
 import { GraduationCap, PenLine, ArrowRight } from 'lucide-react'
 
-interface LandingProps {
-  onEnter: (portal: 'student' | 'admin') => void
-}
-
-export function Landing({ onEnter }: LandingProps) {
+export function Landing() {
   return (
     <div className="flex flex-col items-center py-8 sm:py-16">
       <p className="text-xs font-medium uppercase tracking-[0.25em] text-zinc-400">Knowledge testing platform</p>
@@ -17,13 +12,13 @@ export function Landing({ onEnter }: LandingProps) {
       </h1>
       <p className="mt-5 max-w-md text-center text-base leading-relaxed text-zinc-500">
         One purpose: test what students know. Anyone can walk in, take a test, and get an
-        instant report card - the admin sets up the exams and the answer keys.
+        instant report card - the admin sets up the exams and the correct answers.
       </p>
 
       <div className="mt-12 grid w-full gap-4 sm:mt-16 sm:grid-cols-2 sm:gap-6">
         {/* Student portal */}
-        <button
-          onClick={() => onEnter('student')}
+        <Link
+          href="/exams"
           className="group flex flex-col rounded-2xl border border-zinc-200 p-7 text-left transition-colors hover:border-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 sm:p-8"
         >
           <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200">
@@ -39,11 +34,11 @@ export function Landing({ onEnter }: LandingProps) {
             Enter portal
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
-        </button>
+        </Link>
 
         {/* Admin console */}
-        <button
-          onClick={() => onEnter('admin')}
+        <Link
+          href="/admin"
           className="group flex flex-col rounded-2xl border border-zinc-200 p-7 text-left transition-colors hover:border-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 sm:p-8"
         >
           <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200">
@@ -51,15 +46,14 @@ export function Landing({ onEnter }: LandingProps) {
           </span>
           <span className="mt-6 text-lg font-medium text-zinc-900">Admin Portal</span>
           <span className="mt-2 flex-1 text-sm leading-relaxed text-zinc-500">
-            For the admin only: set up exams by creating tests, adding questions, setting time
-            limits, and uploading answer keys. Grading is automatic - results appear the moment
-            a test is submitted.
+            For the admin only: set up exams by creating tests, writing questions, and setting
+            time limits. Grading is automatic - results appear the moment a test is submitted.
           </span>
           <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900">
             Enter portal
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
-        </button>
+        </Link>
       </div>
     </div>
   )

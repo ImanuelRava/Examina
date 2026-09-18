@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { clientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ id: string }> }
+
+// 20 submissions per 5 minutes per IP. Generous for a real student
+// retaking an exam, brutal on a spammer trying to pollute the results table.
+const SUBMIT_LIMIT = 20
+const SUBMIT_WINDOW_MS = 5 * 60 * 1000
 
 /**
  * POST /api/exams/[id]/submit - grade a submission server-side.
@@ -12,6 +18,20 @@ type Ctx = { params: Promise<{ id: string }> }
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params
 
+  // Light rate-limit to prevent result-table pollution.
+  const ip = clientIp(req)
+  const rl = rateLimit({
+    key: `submit:${ip}`,
+    limit: SUBMIT_LIMIT,
+    windowMs: SUBMIT_WINDOW_MS,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many submissions. Please wait a few minutes and try again.' },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    )
+  }
+
   let body: { studentName?: string; answers?: Record<string, string>; timeSpentSeconds?: number; autoSubmitted?: boolean }
   try {
     body = await req.json()
@@ -19,7 +39,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const studentName = (body.studentName ?? '').toString().trim() || 'Anonymous'
+  const studentName = (body.studentName ?? '').toString().trim().slice(0, 80) || 'Anonymous'
   const submitted = body.answers ?? {}
 
   // Optional timer metadata sent by the client

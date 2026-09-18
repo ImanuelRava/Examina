@@ -203,7 +203,8 @@ export async function downloadReportPdf(report: AttemptReport): Promise<void> {
     },
     didParseCell: (data) => {
       if (data.section !== 'body') return
-      const result = String(data.row.raw?.[4] ?? '')
+      const raw = data.row.raw as unknown as Record<number, unknown> | undefined
+      const result = String(raw?.[4] ?? '')
       const idx = data.column.index
       if (result === 'Right') {
         if (idx === 4) data.cell.styles.textColor = GREEN

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Loader2, Timer, Zap } from 'lucide-react'
 import { api, AttemptRow, formatDuration } from './types'
-import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -21,11 +21,8 @@ import {
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 
-interface AdminResultsProps {
-  onOpenReport: (attemptId: string) => void
-}
-
-export function AdminResults({ onOpenReport }: AdminResultsProps) {
+export function AdminResults() {
+  const router = useRouter()
   const { toast } = useToast()
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -149,10 +146,10 @@ export function AdminResults({ onOpenReport }: AdminResultsProps) {
                   return (
                     <TableRow
                       key={a.id}
-                      onClick={() => onOpenReport(a.id)}
+                      onClick={() => router.push(`/attempts/${a.id}?from=admin`)}
                       className="cursor-pointer"
                       tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && onOpenReport(a.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && router.push(`/attempts/${a.id}?from=admin`)}
                       aria-label={`Open report for ${a.studentName}, score ${a.score} of ${a.total}`}
                     >
                       <TableCell className="font-medium text-zinc-900">

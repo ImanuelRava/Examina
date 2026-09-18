@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { api, ExamSummary } from './types'
 import { Button } from '@/components/ui/button'
@@ -27,11 +28,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
 
-interface AdminExamListProps {
-  onOpen: (examId: string) => void
-}
-
-export function AdminExamList({ onOpen }: AdminExamListProps) {
+export function AdminExamList() {
+  const router = useRouter()
   const { toast } = useToast()
   const [exams, setExams] = useState<ExamSummary[] | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -75,8 +73,8 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
       setCreateOpen(false)
       setTitle('')
       setDescription('')
-      toast({ title: 'Exam created', description: 'Now add questions and the answer key.' })
-      onOpen(exam.id)
+      toast({ title: 'Exam created', description: 'Now add questions to it.' })
+      router.push(`/admin/exams/${exam.id}`)
     } catch (err) {
       toast({ title: 'Could not create exam', description: (err as Error).message, variant: 'destructive' })
     } finally {
@@ -104,7 +102,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Exams</h1>
-          <p className="mt-1 text-sm text-zinc-500">Set up exams: create tests, manage questions and answer keys.</p>
+          <p className="mt-1 text-sm text-zinc-500">Set up exams: create tests and manage questions.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="shrink-0">
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -129,7 +127,10 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
               key={exam.id}
               className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 p-5 transition-colors hover:border-zinc-400 sm:p-6"
             >
-              <button onClick={() => onOpen(exam.id)} className="min-w-0 flex-1 text-left focus-visible:outline-none">
+              <button
+                onClick={() => router.push(`/admin/exams/${exam.id}`)}
+                className="min-w-0 flex-1 text-left focus-visible:outline-none"
+              >
                 <span className="block truncate text-base font-medium text-zinc-900">{exam.title}</span>
                 <span className="mt-0.5 block truncate text-sm text-zinc-500">
                   {exam.questionCount} {exam.questionCount === 1 ? 'question' : 'questions'} ·{' '}
@@ -138,7 +139,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
                 </span>
               </button>
               <div className="flex shrink-0 items-center gap-1.5">
-                <Button variant="outline" size="sm" onClick={() => onOpen(exam.id)}>
+                <Button variant="outline" size="sm" onClick={() => router.push(`/admin/exams/${exam.id}`)}>
                   Edit
                 </Button>
                 <Button
@@ -208,7 +209,7 @@ export function AdminExamList({ onOpen }: AdminExamListProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this exam?</AlertDialogTitle>
             <AlertDialogDescription>
-              All of its questions, answer keys and student attempts will be permanently removed. This cannot be
+              All of its questions and student attempts will be permanently removed. This cannot be
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -9,10 +9,12 @@ const nextConfig: NextConfig = {
   // Keep the Prisma query engine outside the bundler so its native
   // binaries resolve correctly on serverless functions.
   serverExternalPackages: ["@prisma/client"],
+  // Strictness is back on - type errors should fail the build.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  reactStrictMode: false,
+  // Catches more bugs in dev (double-invoking effects, etc.).
+  reactStrictMode: true,
 };
 
 export default nextConfig;
