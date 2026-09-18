@@ -7,12 +7,19 @@ import { toPng } from 'html-to-image'
  * Renders text containing LaTeX math (delimited by $...$ or $$...$$) into a
  * PNG image suitable for embedding in a jsPDF document.
  *
- * - Plain text segments are escaped HTML; math segments are rendered via KaTeX.
- * - The offscreen container is sized in CSS pt so its bounding box matches
- *   what jsPDF will draw (1pt = 1/72 inch; CSS px at 96 DPI = 0.75pt).
- * - Images are captured at pixelRatio 2 for crisp output when printed.
- * - Results are cached per (text + options) key so repeated equations in the
- *   same report card don't re-render.
+ * Key implementation details:
+ * 1. Waits for `document.fonts.ready` before capturing, so KaTeX's custom
+ *    web fonts (KaTeX_Main, KaTeX_Math, KaTeX_Sans, etc.) are fully loaded.
+ *    Without this, the captured PNG is blank/transparent.
+ * 2. Uses `skipFonts: true` in `toPng` — we don't need html-to-image to
+ *    embed font files into the SVG (it has known CORS issues with font
+ *    CDN URLs). Since fonts are already loaded in the document, the
+ *    browser's native rendering uses them.
+ * 3. Positions the offscreen container with `position: absolute` + near-zero
+ *    opacity (NOT `position: fixed; left: -99999px` which can cause
+ *    html-to-image to capture an empty area in some browsers).
+ * 4. Validates the output PNG — if it's suspiciously small (likely empty),
+ *    returns null so the caller falls back to native jsPDF text.
  */
 
 const PX_TO_PT = 0.75 // 96 DPI CSS pixels → PDF points
@@ -24,21 +31,14 @@ export interface RenderedImage {
 }
 
 export interface RenderOptions {
-  /** Font size in PDF points (matches jsPDF setFontSize). */
   fontSizePt: number
-  /** Text color as RGB 0-255. */
   color: [number, number, number]
-  /** Max width in PDF points (forces wrapping). */
   maxWidthPt?: number
   bold?: boolean
   italic?: boolean
-  /** Background color. Defaults to white. */
   background?: [number, number, number]
-  /** Inner padding in CSS pixels (kept small to keep the bounding box tight). */
   paddingPx?: number
-  /** Font family. Defaults to a Helvetica/Arial sans-serif stack. */
   fontFamily?: string
-  /** Line height multiplier. Defaults to 1.4. */
   lineHeight?: number
 }
 
@@ -67,10 +67,6 @@ function renderMathSegment(tex: string, displayMode: boolean): string {
   }
 }
 
-/**
- * Convert text with $...$ / $$...$$ delimiters into HTML where math segments
- * are rendered by KaTeX and plain segments are escaped text.
- */
 function renderMixedMathToHtml(text: string): string {
   const src = text ?? ''
   let out = ''
@@ -86,7 +82,6 @@ function renderMixedMathToHtml(text: string): string {
     }
 
     if (dd !== -1 && (sd === -1 || dd <= sd)) {
-      // Display math $$...$$
       const end = src.indexOf('$$', dd + 2)
       if (end === -1) {
         out += escapeHtml(src.slice(i))
@@ -96,7 +91,6 @@ function renderMixedMathToHtml(text: string): string {
       out += renderMathSegment(src.slice(dd + 2, end), true)
       i = end + 2
     } else {
-      // Inline math $...$
       const end = src.indexOf('$', sd + 1)
       if (end === -1) {
         out += escapeHtml(src.slice(i))
@@ -111,23 +105,57 @@ function renderMixedMathToHtml(text: string): string {
   return out
 }
 
-const cache = new Map<string, RenderedImage>()
+const cache = new Map<string, RenderedImage | null>()
 
-/**
- * Render a piece of text (which may contain LaTeX math) into a PNG image
- * sized for embedding in a jsPDF document.
- *
- * For text that contains no math, prefer jsPDF's native `doc.text()` — it
- * produces real selectable text and a smaller PDF. Use this function only
- * when `hasMath(text)` returns true.
- */
+// KaTeX font families that need to be preloaded before image capture.
+// Without explicitly loading these via document.fonts.load(), the browser
+// doesn't download them until an element references them — and by then
+// toPng has already captured an empty image.
+const KATEX_FONT_FAMILIES = [
+  'KaTeX_Main',
+  'KaTeX_Math',
+  'KaTeX_Caligraphic',
+  'KaTeX_Fraktur',
+  'KaTeX_SansSerif',
+  'KaTeX_Script',
+  'KaTeX_Typewriter',
+  'KaTeX_Size1',
+  'KaTeX_Size2',
+  'KaTeX_Size3',
+  'KaTeX_Size4',
+  'KaTeX_AMS',
+]
+
+let katexFontsLoaded = false
+
+async function preloadKatexFonts(): Promise<void> {
+  if (katexFontsLoaded) return
+  if (typeof document === 'undefined' || !('fonts' in document)) return
+
+  try {
+    // Explicitly request each KaTeX font family. The browser downloads
+    // the font files and adds them to its font cache. We load both normal
+    // and italic styles since KaTeX uses both.
+    await Promise.all(
+      KATEX_FONT_FAMILIES.flatMap((family) => [
+        document.fonts.load(`normal 16px "${family}"`),
+        document.fonts.load(`italic 16px "${family}"`),
+      ])
+    )
+    // Wait for all pending font loads to settle.
+    await document.fonts.ready
+    katexFontsLoaded = true
+  } catch {
+    // Non-fatal — proceed with whatever fonts are available.
+  }
+}
+
 export async function renderTextWithMath(
   text: string,
   options: RenderOptions
-): Promise<RenderedImage> {
+): Promise<RenderedImage | null> {
   const key = JSON.stringify({ text, ...options })
-  const cached = cache.get(key)
-  if (cached) return cached
+  if (cache.has(key)) return cache.get(key) ?? null
 
   const padding = options.paddingPx ?? 4
   const color = `rgb(${options.color.join(',')})`
@@ -139,9 +167,16 @@ export async function renderTextWithMath(
   const lineHeight = options.lineHeight ?? 1.4
 
   const container = document.createElement('div')
-  container.style.position = 'fixed'
-  container.style.left = '-99999px'
+  // Use position: absolute with opacity: 0 + pointer-events: none.
+  // position: fixed; left: -99999px can cause html-to-image to capture an
+  // empty area in some browsers (the foreignObject renders outside the
+  // visible viewport).
+  container.style.position = 'absolute'
+  container.style.left = '0'
   container.style.top = '0'
+  container.style.opacity = '0'
+  container.style.pointerEvents = 'none'
+  container.style.zIndex = '-1'
   container.style.padding = `${padding}px`
   container.style.background = bg
   container.style.color = color
@@ -163,52 +198,70 @@ export async function renderTextWithMath(
   document.body.appendChild(container)
 
   try {
-    // Let the browser lay out + load KaTeX fonts before capture.
-    await new Promise((r) => setTimeout(r, 80))
+    // CRITICAL: Preload KaTeX fonts AFTER the container is in the DOM
+    // (so the browser knows which font families are needed) but BEFORE
+    // capturing the image. Without this, toPng captures before the font
+    // files are downloaded, producing a blank/transparent PNG.
+    await preloadKatexFonts()
+
+    // Extra settle delay after font swap.
+    await new Promise((r) => setTimeout(r, 50))
 
     const dataUrl = await toPng(container, {
       pixelRatio: 2,
       cacheBust: true,
       backgroundColor: bg,
-      // Skip fonts (KaTeX CSS is already loaded globally via layout.tsx).
-      skipFonts: false,
+      // CRITICAL: skip font embedding. html-to-image's font embedding has
+      // known CORS issues with KaTeX's font URLs. Since we've already
+      // preloaded the fonts, the browser renders with them natively.
+      skipFonts: true,
+      quality: 1,
     })
 
     const rect = container.getBoundingClientRect()
-    const result: RenderedImage = {
-      dataUrl,
-      widthPt: rect.width * PX_TO_PT,
-      heightPt: rect.height * PX_TO_PT,
+    const widthPt = rect.width * PX_TO_PT
+    const heightPt = rect.height * PX_TO_PT
+
+    // Validation: if the image is suspiciously small or the data URL is too
+    // short (indicating an empty/transparent capture), return null so the
+    // caller falls back to native jsPDF text rendering.
+    if (widthPt < 2 || heightPt < 2) {
+      console.warn('Math render produced empty image for:', text)
+      cache.set(key, null)
+      return null
     }
+
+    // A valid PNG data URL should be at least ~200 bytes. If it's shorter,
+    // it's likely a blank/transparent image.
+    if (dataUrl.length < 200) {
+      console.warn('Math render produced suspiciously small PNG for:', text)
+      cache.set(key, null)
+      return null
+    }
+
+    const result: RenderedImage = { dataUrl, widthPt, heightPt }
     cache.set(key, result)
     return result
+  } catch (err) {
+    console.warn('Math render failed for:', text, err)
+    cache.set(key, null)
+    return null
   } finally {
     document.body.removeChild(container)
   }
 }
 
-/**
- * Pre-render a batch of texts in parallel.
- * Returns an array aligned with the input order. Failures degrade gracefully
- * to a placeholder image (so a single bad equation doesn't break the PDF).
- */
 export async function renderBatch(
   items: Array<{ text: string; options: RenderOptions } | null>
 ): Promise<Array<RenderedImage | null>> {
   return Promise.all(
     items.map(async (item) => {
       if (!item || !hasMath(item.text)) return null
-      try {
-        return await renderTextWithMath(item.text, item.options)
-      } catch (err) {
-        console.warn('Math render failed for:', item.text, err)
-        return null
-      }
+      return renderTextWithMath(item.text, item.options)
     })
   )
 }
 
-/** Clear the render cache (useful if generating multiple reports in one session). */
 export function clearMathRenderCache(): void {
   cache.clear()
 }
