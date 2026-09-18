@@ -162,3 +162,55 @@ npx next build
 
 Build output shows all 7 page routes plus 11 API routes, with `proxy.ts`
 registered as a Middleware-style interceptor.
+
+## 5. LaTeX math rendering in PDF report cards
+
+### Problem
+The previous `pdf.ts` used a `plain()` function that stripped LaTeX to
+plaintext — e.g. `$\sqrt{x}$` became `sqrt(x)`, `$\frac{1}{2}$` became
+`(1)/(2)`, `$x^2$` became `x^2` (or `x²` only for 1/2/3). This made the
+PDF report card show raw-ish LaTeX instead of proper math equations.
+
+### Fix
+Added a new `src/components/exam/pdf-math.ts` module that:
+
+1. **Parses `$...$` and `$$...$$` delimiters** in any text, splitting it
+   into plain-text segments and math segments.
+2. **Renders math segments via KaTeX** (already a dependency) using
+   `katex.renderToString(...)` to produce the same HTML as the on-screen
+   `<MathText />` component.
+3. **Captures the mixed HTML as a PNG** via `html-to-image` (new dep,
+   ~50KB) at pixelRatio 2 for crisp output.
+4. **Returns the PNG + dimensions in PDF points** so the caller can place
+   it correctly in the jsPDF document.
+5. **Caches results** by `(text + options)` key so repeated equations in
+   the same report don't re-render.
+
+### Changes to `pdf.ts`
+- Replaced `jspdf-autotable` with **manual table drawing** so we can embed
+  images in cells. The manual table preserves the same look (INK header,
+  color-coded row backgrounds for right/wrong/skipped, 5 columns).
+- Each cell that contains math is pre-rendered as a PNG in parallel
+  (`Promise.all` over all rows × all columns), then drawn with
+  `doc.addImage()`.
+- Each cell without math still uses `doc.text()` (smaller file size,
+  selectable text).
+- The Review section at the bottom of the PDF uses the same image-based
+  rendering for question text, correct-answer detail, and explanation.
+
+### New dependency
+- `html-to-image@1.11.13` — small client-side library that uses SVG
+  `foreignObject` to capture DOM nodes as PNG. No server-side rendering
+  required.
+
+### What you'll see in the PDF
+| Input | Before (plain text) | After (rendered) |
+|---|---|---|
+| `$x^2$` | `x²` or `x^2` | Real `x²` with proper kerning |
+| `$\frac{1}{2}$` | `(1)/(2)` | Stacked fraction with horizontal bar |
+| `$\sqrt{x+1}$` | `sqrt(x+1)` | Real `√(x+1)` with vinculum |
+| `$\sum_{i=1}^{n} x_i$` | `sum_(i=1)^(n) x_i` | Proper Σ with limits |
+| `$\alpha + \beta = \gamma$` | `alpha + beta = gamma` | Real α + β = γ |
+| `$\int_0^1 x\,dx$` | `integral_(0)^(1) x dx` | Proper ∫ with limits |
+
+Plain text (no `$` delimiters) still uses native jsPDF text rendering.
