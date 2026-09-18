@@ -186,21 +186,19 @@ export function Landing() {
 
       {/* Credit highlight */}
       <section className="mt-16 w-full">
-        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card p-8 text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">
-            Built by
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card p-8 text-center sm:p-10">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Sparkles className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-foreground sm:text-lg">
+            This website is used for teaching the students that I teach.
+            My name is <span className="font-semibold">Imanuel Rava</span>, and I built Examina
+            so my students can take tests, see their scores right away, and review which answers
+            they got right or wrong. Every exam here was made for them.
           </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Imanuel Rava
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-            This website was generated and engineered by Imanuel Rava.
-            Every line of code, from the exam engine to the report card PDF,
-            was crafted with care for students and educators.
-          </p>
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground">
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground">
             <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
-            Crafted with care by Imanuel Rava
+            Built by Imanuel Rava for my students
           </div>
         </div>
       </section>
