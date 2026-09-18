@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getStudentFromRequest } from '@/lib/student-auth'
+import { getStudentFromRequest, requireStudent } from '@/lib/student-auth'
 import { clientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -13,11 +13,18 @@ const SUBMIT_WINDOW_MS = 5 * 60 * 1000
 
 /**
  * POST /api/exams/[id]/submit - grade a submission server-side.
- * Body: { studentName?: string, answers: Record<questionId, optionKey | ""> }
- * If the student is logged in, the attempt is linked to their account.
+ * Body: { answers: Record<questionId, optionKey | "">, timeSpentSeconds?, autoSubmitted? }
+ *
+ * REQUIRES a signed-in student. The attempt is linked to their account.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params
+
+  // Hard auth requirement — no anonymous submissions.
+  const student = getStudentFromRequest(req)
+  if (!student) {
+    return NextResponse.json({ error: 'Sign in required to submit an exam.' }, { status: 401 })
+  }
 
   const ip = clientIp(req)
   const rl = rateLimit({
@@ -32,20 +39,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     )
   }
 
-  let body: { studentName?: string; answers?: Record<string, string>; timeSpentSeconds?: number; autoSubmitted?: boolean }
+  let body: { answers?: Record<string, string>; timeSpentSeconds?: number; autoSubmitted?: boolean }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  // If logged in, use the student's account name; otherwise use the provided name.
-  const student = getStudentFromRequest(req)
-  const studentName = student
-    ? null // will be set via the student relation; studentName column defaults
-    : (body.studentName ?? '').toString().trim().slice(0, 80) || 'Anonymous'
   const submitted = body.answers ?? {}
-
   const rawTime = Number(body.timeSpentSeconds)
   const timeSpentSeconds = Number.isFinite(rawTime) && rawTime >= 0 ? Math.min(Math.round(rawTime), 60 * 60 * 24) : null
   const autoSubmitted = body.autoSubmitted === true
@@ -73,25 +74,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     graded.push({ questionId: q.id, selected, isCorrect })
   }
 
-  // Resolve the student name if logged in (for the denormalized column).
-  let resolvedStudentName = studentName
-  let studentId: string | null = null
-  if (student) {
-    const studentRow = await db.student.findUnique({
-      where: { id: student.studentId },
-      select: { id: true, name: true },
-    })
-    if (studentRow) {
-      studentId = studentRow.id
-      resolvedStudentName = studentRow.name
-    }
+  // Resolve the student name from their account (for the denormalized column).
+  const studentRow = await db.student.findUnique({
+    where: { id: student.studentId },
+    select: { id: true, name: true },
+  })
+  if (!studentRow) {
+    return NextResponse.json({ error: 'Account not found. Please sign in again.' }, { status: 401 })
   }
 
   const attempt = await db.attempt.create({
     data: {
       examId: exam.id,
-      studentId,
-      studentName: resolvedStudentName ?? 'Anonymous',
+      studentId: studentRow.id,
+      studentName: studentRow.name,
       score,
       total: exam.questions.length,
       timeSpentSeconds,
@@ -111,3 +107,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     { status: 201 }
   )
 }
+
+// Unused import guard — requireStudent kept available for other routes.
+void requireStudent

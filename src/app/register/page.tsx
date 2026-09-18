@@ -51,9 +51,9 @@ export default function RegisterPage() {
   return (
     <div className="mx-auto max-w-sm py-8">
       <div className="rounded-2xl border border-border bg-card p-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Sign up to take exams and track your scores.
+          Everyone needs an account to take exams on Examina. It&apos;s free.
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>

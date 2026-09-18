@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Loader2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Award, Clock, Loader2 } from 'lucide-react'
 import { api, StudentExam } from './types'
 import { MathText } from './math-text'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import {
   AlertDialog,
@@ -24,6 +23,19 @@ interface ExamTakerProps {
   examId: string
 }
 
+interface StudentInfo {
+  id: string
+  name: string
+  email: string
+}
+
+interface PreviousAttempt {
+  id: string
+  score: number
+  total: number
+  createdAt: string
+}
+
 function fmtClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60)
   const s = totalSeconds % 60
@@ -36,7 +48,9 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const [exam, setExam] = useState<StudentExam | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [phase, setPhase] = useState<'intro' | 'running'>('intro')
-  const [studentName, setStudentName] = useState('')
+  const [student, setStudent] = useState<StudentInfo | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [previousAttempts, setPreviousAttempts] = useState<PreviousAttempt[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [idx, setIdx] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -45,15 +59,56 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const [remaining, setRemaining] = useState<number | null>(null)
   const submitLockRef = useRef(false)
 
+  // Auth check + load exam + load previous attempts
   useEffect(() => {
     let alive = true
-    api<{ exam: StudentExam }>(`/api/exams/${examId}/take`)
-      .then(({ exam: data }) => alive && setExam(data))
-      .catch((err: Error) => alive && setLoadError(err.message))
+
+    // 1. Check auth — redirect to login if not signed in
+    api<{ authenticated: boolean; student?: StudentInfo }>('/api/student/session')
+      .then((data) => {
+        if (!alive) return
+        if (!data.authenticated || !data.student) {
+          router.replace(`/login?redirect=/exams/${examId}/take`)
+          return
+        }
+        setStudent(data.student)
+        setAuthChecked(true)
+
+        // 2. Load exam (only after auth passes, since /take is public but we want to gate the UX)
+        api<{ exam: StudentExam }>(`/api/exams/${examId}/take`)
+          .then(({ exam: data }) => alive && setExam(data))
+          .catch((err: Error) => alive && setLoadError(err.message))
+
+        // 3. Load previous attempts for this exam by this student
+        api<{ attempts: PreviousAttempt[] }>('/api/student/attempts')
+          .then((data) => {
+            if (!alive) return
+            setPreviousAttempts(
+              data.attempts
+                .filter((a) => a.id !== undefined)
+                .map((a) => ({
+                  id: a.id,
+                  score: a.score,
+                  total: a.total,
+                  createdAt: a.createdAt,
+                }))
+                .filter((_) => true)
+            )
+          })
+          .catch(() => {
+            // Non-fatal — just don't show history
+          })
+      })
+      .catch(() => {
+        if (alive) {
+          router.replace(`/login?redirect=/exams/${examId}/take`)
+        }
+      })
+
     return () => {
       alive = false
     }
-  }, [examId])
+  }, [examId, router])
 
   const questions = exam?.questions ?? []
   const current = questions[idx]
@@ -68,7 +123,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     try {
       const { attemptId } = await api<{ attemptId: string }>(`/api/exams/${exam.id}/submit`, {
         method: 'POST',
-        body: JSON.stringify({ studentName, answers, timeSpentSeconds, autoSubmitted: auto }),
+        body: JSON.stringify({ answers, timeSpentSeconds, autoSubmitted: auto }),
       })
       if (auto) {
         toast({ title: "Time's up", description: 'Your exam was submitted automatically.' })
@@ -107,6 +162,16 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return <div className="rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">{loadError}</div>
   }
 
+  // Auth gate: show loading while checking session, before deciding to render
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        Checking your session…
+      </div>
+    )
+  }
+
   if (!exam) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
@@ -124,6 +189,12 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       </div>
     )
   }
+
+  // Previous attempts stats
+  const bestPct =
+    previousAttempts.length > 0
+      ? Math.round(Math.max(...previousAttempts.map((a) => (a.total > 0 ? (a.score / a.total) * 100 : 0))))
+      : null
 
   // ---------- Intro screen ----------
   if (phase === 'intro') {
@@ -149,23 +220,48 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             <span>Graded instantly</span>
           </div>
 
-          <div className="mt-8">
-            <label htmlFor="student-name" className="text-sm font-medium">
-              Your name <span className="font-normal text-muted-foreground/70">(optional)</span>
-            </label>
-            <Input
-              id="student-name"
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
-              placeholder="e.g. Jane Doe"
-              className="mt-2"
-              maxLength={80}
-            />
-            <p className="mt-2 text-xs text-muted-foreground/70">Shown on your report card if you&apos;re not signed in.</p>
-          </div>
+          {/* Signed-in student banner */}
+          {student && (
+            <div className="mt-6 flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                {student.name.charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{student.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{student.email}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Previous attempts */}
+          {previousAttempts.length > 0 && (
+            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-4 text-sm">
+              <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <Award className="h-3 w-3" aria-hidden="true" />
+                Your history with this exam
+              </p>
+              <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                <span>
+                  <span className="font-medium text-foreground">{previousAttempts.length}</span>{' '}
+                  {previousAttempts.length === 1 ? 'attempt' : 'attempts'}
+                </span>
+                {bestPct !== null && (
+                  <span>
+                    Best score:{' '}
+                    <span className={`font-medium ${bestPct >= 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {bestPct}%
+                    </span>
+                  </span>
+                )}
+                <span className="text-muted-foreground">
+                  Last taken {new Date(previousAttempts[0].createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          )}
 
           <Button onClick={startExam} className="mt-8 h-11 w-full text-sm sm:w-auto sm:px-10">
-            Start exam
+            {previousAttempts.length > 0 ? 'Retake exam' : 'Start exam'}
             <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
           </Button>
         </div>

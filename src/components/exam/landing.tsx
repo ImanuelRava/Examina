@@ -1,7 +1,37 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { GraduationCap, PenLine, ArrowRight, BarChart3 } from 'lucide-react'
+import { GraduationCap, PenLine, ArrowRight, BarChart3, LayoutDashboard } from 'lucide-react'
+
+interface StudentInfo {
+  id: string
+  name: string
+  email: string
+}
 
 export function Landing() {
+  const [student, setStudent] = useState<StudentInfo | null>(null)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    api<{ authenticated: boolean; student?: StudentInfo }>('/api/student/session')
+      .then((data) => {
+        if (!alive) return
+        setStudent(data.authenticated ? data.student ?? null : null)
+      })
+      .catch(() => {
+        if (alive) setStudent(null)
+      })
+      .finally(() => {
+        if (alive) setChecked(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
   return (
     <div className="flex flex-col items-center py-8 sm:py-16">
       <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">
@@ -18,24 +48,45 @@ export function Landing() {
       </p>
 
       <div className="mt-12 grid w-full gap-4 sm:mt-16 sm:grid-cols-2 sm:gap-6">
-        {/* Student portal */}
-        <Link
-          href="/exams"
-          className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
-        >
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <GraduationCap className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <span className="mt-6 text-lg font-medium">Take a test</span>
-          <span className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
-            Browse available exams, answer at your own pace, and get an instant
-            report card showing exactly which answers were right or wrong.
-          </span>
-          <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
-            Browse exams
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </span>
-        </Link>
+        {/* Student portal — adaptive CTA */}
+        {checked && student ? (
+          <Link
+            href="/dashboard"
+            className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="mt-6 text-lg font-medium">Your dashboard</span>
+            <span className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Welcome back, {student.name.split(' ')[0]}. See your past attempts,
+              scores, and retake any exam.
+            </span>
+            <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+              Go to dashboard
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href={checked ? '/register' : '#'}
+            className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <GraduationCap className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="mt-6 text-lg font-medium">Take a test</span>
+            <span className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              {checked
+                ? 'Create a free account to browse exams, take tests, and get instant report cards with your scores.'
+                : 'Create a free account to take exams and track your scores.'}
+            </span>
+            <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+              {checked ? 'Get started' : 'Loading…'}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
+          </Link>
+        )}
 
         {/* Admin console */}
         <Link
@@ -89,4 +140,21 @@ export function Landing() {
       </div>
     </div>
   )
+}
+
+// Inline the api helper to avoid a circular import dance with the 'use client' directive
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    cache: 'no-store',
+    ...init,
+    headers: {
+      ...(init?.body && !(init.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers ?? {}),
+    },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error((data as { error?: string }).error ?? 'Something went wrong.')
+  }
+  return data as T
 }

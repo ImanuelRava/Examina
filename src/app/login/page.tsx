@@ -46,7 +46,7 @@ function LoginForm() {
       <div className="rounded-2xl border border-border bg-card p-8">
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Sign in to track your test scores.
+          Sign in to take exams and see your scores. Everyone needs an account.
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
