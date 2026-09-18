@@ -1,25 +1,27 @@
 'use client'
 
 import katex from 'katex'
-import { toPng } from 'html-to-image'
+import html2canvas from 'html2canvas'
 
 /**
  * Renders text containing LaTeX math (delimited by $...$ or $$...$$) into a
  * PNG image suitable for embedding in a jsPDF document.
  *
- * Key implementation details:
- * 1. Waits for `document.fonts.ready` before capturing, so KaTeX's custom
- *    web fonts (KaTeX_Main, KaTeX_Math, KaTeX_Sans, etc.) are fully loaded.
- *    Without this, the captured PNG is blank/transparent.
- * 2. Uses `skipFonts: true` in `toPng` — we don't need html-to-image to
- *    embed font files into the SVG (it has known CORS issues with font
- *    CDN URLs). Since fonts are already loaded in the document, the
- *    browser's native rendering uses them.
- * 3. Positions the offscreen container with `position: absolute` + near-zero
- *    opacity (NOT `position: fixed; left: -99999px` which can cause
- *    html-to-image to capture an empty area in some browsers).
- * 4. Validates the output PNG — if it's suspiciously small (likely empty),
- *    returns null so the caller falls back to native jsPDF text.
+ * Uses html2canvas (NOT html-to-image). html2canvas rasterizes the DOM
+ * directly using the browser's own rendering — it doesn't try to embed
+ * fonts into an SVG foreignObject, which avoids the KaTeX font-loading
+ * race conditions and CORS issues that plague html-to-image.
+ *
+ * Pipeline:
+ * 1. Insert an offscreen container with the rendered KaTeX HTML.
+ * 2. Wait for document.fonts.ready (KaTeX fonts are loaded globally via
+ *    katex.min.css in layout.tsx).
+ * 3. Force a synchronous reflow.
+ * 4. html2canvas rasterizes the container to a <canvas>.
+ * 5. Convert canvas to PNG data URL, measure in PDF points, return.
+ *
+ * Results are cached per (text + options) key so repeated equations in the
+ * same report don't re-render.
  */
 
 const PX_TO_PT = 0.75 // 96 DPI CSS pixels → PDF points
@@ -108,9 +110,6 @@ function renderMixedMathToHtml(text: string): string {
 const cache = new Map<string, RenderedImage | null>()
 
 // KaTeX font families that need to be preloaded before image capture.
-// Without explicitly loading these via document.fonts.load(), the browser
-// doesn't download them until an element references them — and by then
-// toPng has already captured an empty image.
 const KATEX_FONT_FAMILIES = [
   'KaTeX_Main',
   'KaTeX_Math',
@@ -133,16 +132,12 @@ async function preloadKatexFonts(): Promise<void> {
   if (typeof document === 'undefined' || !('fonts' in document)) return
 
   try {
-    // Explicitly request each KaTeX font family. The browser downloads
-    // the font files and adds them to its font cache. We load both normal
-    // and italic styles since KaTeX uses both.
     await Promise.all(
       KATEX_FONT_FAMILIES.flatMap((family) => [
         document.fonts.load(`normal 16px "${family}"`),
         document.fonts.load(`italic 16px "${family}"`),
       ])
     )
-    // Wait for all pending font loads to settle.
     await document.fonts.ready
     katexFontsLoaded = true
   } catch {
@@ -157,6 +152,28 @@ export async function renderTextWithMath(
   const key = JSON.stringify({ text, ...options })
   if (cache.has(key)) return cache.get(key) ?? null
 
+  // Time budget: if rendering takes longer than 8 seconds, give up and
+  // fall back to plain text. Better to ship a PDF with text than no PDF.
+  const TIMEOUT_MS = 8000
+
+  const result = await Promise.race([
+    renderInternal(text, options),
+    new Promise<RenderedImage | null>((resolve) =>
+      setTimeout(() => {
+        console.warn('Math render timed out for:', text)
+        resolve(null)
+      }, TIMEOUT_MS)
+    ),
+  ])
+
+  cache.set(key, result)
+  return result
+}
+
+async function renderInternal(
+  text: string,
+  options: RenderOptions
+): Promise<RenderedImage | null> {
   const padding = options.paddingPx ?? 4
   const color = `rgb(${options.color.join(',')})`
   const bg = options.background
@@ -167,16 +184,9 @@ export async function renderTextWithMath(
   const lineHeight = options.lineHeight ?? 1.4
 
   const container = document.createElement('div')
-  // Use position: absolute with opacity: 0 + pointer-events: none.
-  // position: fixed; left: -99999px can cause html-to-image to capture an
-  // empty area in some browsers (the foreignObject renders outside the
-  // visible viewport).
-  container.style.position = 'absolute'
-  container.style.left = '0'
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
   container.style.top = '0'
-  container.style.opacity = '0'
-  container.style.pointerEvents = 'none'
-  container.style.zIndex = '-1'
   container.style.padding = `${padding}px`
   container.style.background = bg
   container.style.color = color
@@ -198,53 +208,34 @@ export async function renderTextWithMath(
   document.body.appendChild(container)
 
   try {
-    // CRITICAL: Preload KaTeX fonts AFTER the container is in the DOM
-    // (so the browser knows which font families are needed) but BEFORE
-    // capturing the image. Without this, toPng captures before the font
-    // files are downloaded, producing a blank/transparent PNG.
     await preloadKatexFonts()
-
-    // Extra settle delay after font swap.
+    void container.offsetHeight
     await new Promise((r) => setTimeout(r, 50))
 
-    const dataUrl = await toPng(container, {
-      pixelRatio: 2,
-      cacheBust: true,
+    const canvas = await html2canvas(container, {
+      scale: 2,
       backgroundColor: bg,
-      // CRITICAL: skip font embedding. html-to-image's font embedding has
-      // known CORS issues with KaTeX's font URLs. Since we've already
-      // preloaded the fonts, the browser renders with them natively.
-      skipFonts: true,
-      quality: 1,
+      logging: false,
+      useCORS: true,
     })
 
-    const rect = container.getBoundingClientRect()
-    const widthPt = rect.width * PX_TO_PT
-    const heightPt = rect.height * PX_TO_PT
+    const dataUrl = canvas.toDataURL('image/png')
+    const widthPt = (canvas.width / 2) * PX_TO_PT
+    const heightPt = (canvas.height / 2) * PX_TO_PT
 
-    // Validation: if the image is suspiciously small or the data URL is too
-    // short (indicating an empty/transparent capture), return null so the
-    // caller falls back to native jsPDF text rendering.
     if (widthPt < 2 || heightPt < 2) {
       console.warn('Math render produced empty image for:', text)
-      cache.set(key, null)
       return null
     }
 
-    // A valid PNG data URL should be at least ~200 bytes. If it's shorter,
-    // it's likely a blank/transparent image.
     if (dataUrl.length < 200) {
       console.warn('Math render produced suspiciously small PNG for:', text)
-      cache.set(key, null)
       return null
     }
 
-    const result: RenderedImage = { dataUrl, widthPt, heightPt }
-    cache.set(key, result)
-    return result
+    return { dataUrl, widthPt, heightPt }
   } catch (err) {
     console.warn('Math render failed for:', text, err)
-    cache.set(key, null)
     return null
   } finally {
     document.body.removeChild(container)

@@ -99,6 +99,17 @@ interface QuestionRow {
 }
 
 export async function downloadReportPdf(report: AttemptReport): Promise<void> {
+  try {
+    await downloadReportPdfInternal(report)
+  } catch (err) {
+    console.error('PDF generation failed, falling back to text-only:', err)
+    // Last-resort fallback: a minimal text-only PDF so the user always
+    // gets *something* downloadable, even if math image rendering crashes.
+    await downloadReportPdfFallback(report)
+  }
+}
+
+async function downloadReportPdfInternal(report: AttemptReport): Promise<void> {
   clearMathRenderCache()
   const { jsPDF } = await import('jspdf')
 
@@ -643,4 +654,103 @@ function drawQuestionTable(
   }
 
   return y
+}
+
+/**
+ * Last-resort fallback: a minimal text-only PDF using the plain() text
+ * converter (no KaTeX image rendering). Used when the main renderer throws
+ * so the user always gets *something* downloadable.
+ */
+async function downloadReportPdfFallback(report: AttemptReport): Promise<void> {
+  const { jsPDF } = await import('jspdf')
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  const W = doc.internal.pageSize.getWidth()
+  const H = doc.internal.pageSize.getHeight()
+  const M = 48
+  const contentW = W - M * 2
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(24, 24, 27)
+  doc.text("Noel's Test", M, 56)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(113, 113, 122)
+  doc.text('REPORT CARD (text-only fallback)', W - M, 56, { align: 'right' })
+
+  doc.setDrawColor(228, 228, 231)
+  doc.setLineWidth(1)
+  doc.line(M, 68, W - M, 68)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(17)
+  doc.setTextColor(24, 24, 27)
+  const titleLines = doc.splitTextToSize(plain(report.examTitle), contentW)
+  doc.text(titleLines, M, 98)
+  let y = 98 + titleLines.length * 21
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  doc.setTextColor(113, 113, 122)
+  const pct = report.total > 0 ? Math.round((report.score / report.total) * 100) : 0
+  const meta = [
+    report.studentName !== 'Anonymous' ? report.studentName : null,
+    new Date(report.createdAt).toLocaleString(),
+    `Score ${report.score}/${report.total} (${pct}%)`,
+    report.autoSubmitted ? 'Auto-submitted' : null,
+  ]
+    .filter(Boolean)
+    .join('   ·   ')
+  doc.text(meta, M, y)
+  y += 24
+
+  for (const q of report.questions) {
+    if (y > H - 80) {
+      doc.addPage()
+      y = 56
+    }
+    const sel = q.options.find((o) => o.key === q.selected)
+    const cor = q.options.find((o) => o.key === q.correctAnswer)
+    const status = q.isCorrect ? 'Right' : q.selected ? 'Wrong' : 'Skipped'
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(24, 24, 27)
+    doc.text(`Q${q.order}. ${plain(q.text)}`, M, y)
+    y += 14
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(113, 113, 122)
+    doc.text(
+      `Your answer: ${q.selected ? `${q.selected}. ${plain(sel?.text ?? '')}` : 'Not answered'}`,
+      M,
+      y
+    )
+    y += 12
+    doc.text(`Correct answer: ${q.correctAnswer}. ${plain(cor?.text ?? '')}`, M, y)
+    y += 12
+    const resultColor: [number, number, number] = q.isCorrect
+      ? [5, 150, 105]
+      : q.selected
+        ? [220, 38, 38]
+        : [113, 113, 122]
+    doc.setTextColor(...resultColor)
+    doc.text(`Result: ${status}`, M, y)
+    y += 16
+
+    if (q.explanation) {
+      doc.setTextColor(113, 113, 122)
+      doc.setFontSize(8.5)
+      const explLines = doc.splitTextToSize(`Explanation: ${plain(q.explanation)}`, contentW)
+      doc.text(explLines, M, y)
+      y += explLines.length * 11 + 8
+    }
+  }
+
+  const slug = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+  const student = report.studentName !== 'Anonymous' ? `-${slug(report.studentName)}` : ''
+  doc.save(`report-card-${slug(report.examTitle)}${student}.pdf`)
 }
