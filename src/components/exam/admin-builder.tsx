@@ -123,13 +123,13 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-xl border border-zinc-200 p-10 text-center text-sm text-zinc-500">{loadError}</div>
+      <div className="rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">{loadError}</div>
     )
   }
 
   if (!exam) {
     return (
-      <div className="flex items-center justify-center gap-2 py-20 text-sm text-zinc-400">
+      <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Loading exam…
       </div>
@@ -142,14 +142,14 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
         variant="ghost"
         size="sm"
         onClick={() => router.push('/admin')}
-        className="-ml-2 text-zinc-500"
+        className="-ml-2 text-muted-foreground"
       >
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
         All exams
       </Button>
 
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900">{exam.title}</h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">{exam.title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         {exam.questions.length} {exam.questions.length === 1 ? 'question' : 'questions'} ·{' '}
         {exam.attemptCount} {exam.attemptCount === 1 ? 'student attempt' : 'student attempts'}
         {exam.durationMinutes != null && <> · {exam.durationMinutes} min time limit</>}
@@ -157,8 +157,8 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
 
       <div className="mt-8 space-y-6">
         {/* Exam details */}
-        <section className="rounded-xl border border-zinc-200 p-5 sm:p-6" aria-label="Exam details">
-          <h2 className="text-sm font-semibold text-zinc-900">Exam details</h2>
+        <section className="rounded-xl border border-border p-5 sm:p-6" aria-label="Exam details">
+          <h2 className="text-sm font-semibold text-foreground">Exam details</h2>
           <div className="mt-4 space-y-4">
             <div>
               <Label htmlFor="edit-title">Title</Label>
@@ -177,7 +177,7 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
             </div>
             <div>
               <Label htmlFor="edit-duration">
-                Time limit <span className="font-normal text-zinc-400">(minutes - leave empty for untimed)</span>
+                Time limit <span className="font-normal text-muted-foreground">(minutes - leave empty for untimed)</span>
               </Label>
               <Input
                 id="edit-duration"
@@ -189,7 +189,7 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
                 placeholder="e.g. 30"
                 className="mt-2.5"
               />
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 When set, students see a countdown and the exam is submitted automatically when time expires.
               </p>
             </div>
@@ -205,8 +205,8 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
         {/* Questions */}
         <section aria-label="Questions">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-900">
-              Questions <span className="font-normal text-zinc-400">({exam.questions.length})</span>
+            <h2 className="text-sm font-semibold text-foreground">
+              Questions <span className="font-normal text-muted-foreground">({exam.questions.length})</span>
             </h2>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
@@ -215,26 +215,26 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
           </div>
 
           {exam.questions.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-zinc-300 p-10 text-center">
-              <p className="text-sm font-medium text-zinc-900">No questions yet</p>
-              <p className="mt-1 text-sm text-zinc-500">
+            <div className="mt-4 rounded-xl border border-dashed border-border p-10 text-center">
+              <p className="text-sm font-medium text-foreground">No questions yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Add your first multiple-choice question to get started.
               </p>
             </div>
           ) : (
             <div className="mt-4 space-y-3">
               {exam.questions.map((q) => (
-                <div key={q.id} className="rounded-xl border border-zinc-200 p-5">
+                <div key={q.id} className="rounded-xl border border-border p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="min-w-0 text-sm font-medium leading-relaxed text-zinc-900">
-                      <span className="mr-1.5 text-zinc-400">Q{q.order}.</span>
+                    <p className="min-w-0 text-sm font-medium leading-relaxed text-foreground">
+                      <span className="mr-1.5 text-muted-foreground">Q{q.order}.</span>
                       <MathText text={q.text} />
                     </p>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-zinc-400 hover:text-zinc-900"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         onClick={() => setEditing(q)}
                         aria-label={`Edit question ${q.order}`}
                       >
@@ -243,7 +243,7 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-zinc-400 hover:text-red-600"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-600"
                         onClick={() => setDeletingQuestion(q)}
                         aria-label={`Delete question ${q.order}`}
                       >
@@ -259,13 +259,13 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
                           <span
                             className={`flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full border px-1.5 text-[11px] font-semibold ${
                               isCorrect
-                                ? 'border-emerald-600 bg-emerald-600 text-white'
-                                : 'border-zinc-200 text-zinc-500'
+                                ? 'border-emerald-600 bg-emerald-600 text-primary-foreground'
+                                : 'border-border text-muted-foreground'
                             }`}
                           >
                             {opt.key}
                           </span>
-                          <span className={isCorrect ? 'font-medium text-zinc-900' : 'text-zinc-600'}>
+                          <span className={isCorrect ? 'font-medium text-foreground' : 'text-muted-foreground'}>
                             <MathText text={opt.text} />
                           </span>
                           {isCorrect && (
@@ -279,7 +279,7 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
                     })}
                   </ul>
                   {q.explanation && (
-                    <p className="mt-3 border-l-2 border-zinc-100 pl-3 text-xs leading-relaxed text-zinc-400">
+                    <p className="mt-3 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
                       <MathText text={q.explanation} />
                     </p>
                   )}
@@ -289,7 +289,7 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
           )}
         </section>
 
-        <p className="px-1 text-xs leading-relaxed text-zinc-400">
+        <p className="px-1 text-xs leading-relaxed text-muted-foreground">
           Tip: grading happens automatically when a student submits. Every student sees a report card with
           right/wrong marks per question right after the exam.
         </p>
@@ -340,7 +340,7 @@ export function AdminExamBuilder({ examId }: AdminExamBuilderProps) {
             <AlertDialogAction
               onClick={handleDeleteQuestion}
               disabled={deleting}
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-red-600 text-primary-foreground hover:bg-red-700"
             >
               {deleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               Delete

@@ -65,12 +65,12 @@ export function AdminResults() {
   }, [filtered])
 
   if (error) {
-    return <div className="rounded-xl border border-zinc-200 p-10 text-center text-sm text-zinc-500">{error}</div>
+    return <div className="rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">{error}</div>
   }
 
   if (attempts === null) {
     return (
-      <div className="flex items-center justify-center gap-2 py-20 text-sm text-zinc-400">
+      <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Loading results…
       </div>
@@ -81,8 +81,8 @@ export function AdminResults() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Results</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Results</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Every student attempt across all exams. Click a row to open its report card.
           </p>
         </div>
@@ -116,16 +116,16 @@ export function AdminResults() {
       )}
 
       {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-xl border border-zinc-200">
+      <div className="mt-6 overflow-hidden rounded-xl border border-border">
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-sm font-medium text-zinc-900">No attempts yet</p>
-            <p className="mt-1 text-sm text-zinc-500">Results appear here as soon as students submit exams.</p>
+            <p className="text-sm font-medium text-foreground">No attempts yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">Results appear here as soon as students submit exams.</p>
           </div>
         ) : (
           <div className="max-h-[28rem] overflow-y-auto">
             <Table>
-              <TableHeader className="sticky top-0 bg-white">
+              <TableHeader className="sticky top-0 bg-background">
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Student</TableHead>
                   <TableHead className="hidden md:table-cell">Exam</TableHead>
@@ -152,7 +152,7 @@ export function AdminResults() {
                       onKeyDown={(e) => e.key === 'Enter' && router.push(`/attempts/${a.id}?from=admin`)}
                       aria-label={`Open report for ${a.studentName}, score ${a.score} of ${a.total}`}
                     >
-                      <TableCell className="font-medium text-zinc-900">
+                      <TableCell className="font-medium text-foreground">
                         {a.studentName}
                         {a.autoSubmitted && (
                           <span
@@ -169,14 +169,14 @@ export function AdminResults() {
                         {a.score}/{a.total}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-medium tabular-nums ${pct >= 50 ? 'text-emerald-700' : 'text-red-600'}`}
+                        className={`text-right font-medium tabular-nums ${pct >= 50 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
                       >
                         {pct}%
                       </TableCell>
                       <TableCell className="hidden text-right tabular-nums sm:table-cell">
                         {formatDuration(a.timeSpentSeconds)}
                       </TableCell>
-                      <TableCell className="hidden text-right text-zinc-500 lg:table-cell">
+                      <TableCell className="hidden text-right text-muted-foreground lg:table-cell">
                         {new Date(a.createdAt).toLocaleDateString()}
                       </TableCell>
                     </TableRow>
@@ -193,12 +193,12 @@ export function AdminResults() {
 
 function StatBlock({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-200 p-4">
-      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+    <div className="rounded-xl border border-border p-4">
+      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {icon}
         {label}
       </p>
-      <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-zinc-900">{value}</p>
+      <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
     </div>
   )
 }

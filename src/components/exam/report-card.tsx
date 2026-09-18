@@ -46,12 +46,12 @@ export function ReportCard({ attemptId }: ReportCardProps) {
   }
 
   if (error) {
-    return <div className="rounded-xl border border-zinc-200 p-10 text-center text-sm text-zinc-500">{error}</div>
+    return <div className="rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">{error}</div>
   }
 
   if (!report) {
     return (
-      <div className="flex items-center justify-center gap-2 py-20 text-sm text-zinc-400">
+      <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Preparing your report card…
       </div>
@@ -75,10 +75,10 @@ export function ReportCard({ attemptId }: ReportCardProps) {
   return (
     <div className="mx-auto max-w-2xl">
       {/* Score header */}
-      <div className="rounded-2xl border border-zinc-200 p-7 sm:p-10">
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-zinc-400">Report card</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900">{report.examTitle}</h1>
-        <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+      <div className="rounded-2xl border border-border p-7 sm:p-10">
+        <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">Report card</p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">{report.examTitle}</h1>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           {report.studentName !== 'Anonymous' ? `${report.studentName} · ` : ''}
           {new Date(report.createdAt).toLocaleString()}
           {report.timeSpentSeconds != null && <> · Time used {formatDuration(report.timeSpentSeconds)}</>}
@@ -89,7 +89,7 @@ export function ReportCard({ attemptId }: ReportCardProps) {
           {/* Ring */}
           <div className="relative h-32 w-32 shrink-0" role="img" aria-label={`Score ${pct} percent`}>
             <svg viewBox="0 0 120 120" className="h-32 w-32 -rotate-90">
-              <circle cx="60" cy="60" r={R} fill="none" strokeWidth="8" className="stroke-zinc-100" />
+              <circle cx="60" cy="60" r={R} fill="none" strokeWidth="8" className="stroke-border" />
               <circle
                 cx="60"
                 cy="60"
@@ -103,26 +103,26 @@ export function ReportCard({ attemptId }: ReportCardProps) {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-semibold tracking-tight text-zinc-900">{pct}%</span>
+              <span className="text-3xl font-semibold tracking-tight text-foreground">{pct}%</span>
             </div>
           </div>
 
           <div className="flex-1 text-center sm:text-left">
-            <p className="text-xl font-medium text-zinc-900">
-              {report.score} <span className="font-normal text-zinc-400">of {total} correct</span>
+            <p className="text-xl font-medium text-foreground">
+              {report.score} <span className="font-normal text-muted-foreground">of {total} correct</span>
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-foreground">
                 <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
                 {correctCount} right
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-foreground">
                 <X className="h-3.5 w-3.5 text-red-500" aria-hidden="true" />
                 {wrongCount} wrong
               </span>
               {unansweredCount > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-700">
-                  <Minus className="h-3.5 w-3.5 text-zinc-400" aria-hidden="true" />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-foreground">
+                  <Minus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   {unansweredCount} skipped
                 </span>
               )}
@@ -147,17 +147,17 @@ export function ReportCard({ attemptId }: ReportCardProps) {
       </div>
 
       {/* Per-question breakdown */}
-      <h2 className="mt-10 text-base font-semibold text-zinc-900">Question by question</h2>
+      <h2 className="mt-10 text-base font-semibold text-foreground">Question by question</h2>
       <div className="mt-4 space-y-3">
         {report.questions.map((q) => {
           const correctOpt = q.options.find((o) => o.key === q.correctAnswer)
           const selectedOpt = q.options.find((o) => o.key === q.selected)
           return (
-            <div key={q.id} className="rounded-xl border border-zinc-200 p-5">
+            <div key={q.id} className="rounded-xl border border-border p-5">
               <div className="flex items-start gap-3">
                 <span
-                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${
-                    q.isCorrect ? 'bg-emerald-600' : q.selected ? 'bg-red-500' : 'bg-zinc-300'
+                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-primary-foreground ${
+                    q.isCorrect ? 'bg-emerald-600' : q.selected ? 'bg-red-500' : 'bg-muted-foreground/50'
                   }`}
                   aria-hidden="true"
                 >
@@ -170,26 +170,26 @@ export function ReportCard({ attemptId }: ReportCardProps) {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-relaxed text-zinc-900">
-                    <span className="mr-1.5 text-zinc-400">Q{q.order}.</span>
+                  <p className="text-sm font-medium leading-relaxed text-foreground">
+                    <span className="mr-1.5 text-muted-foreground">Q{q.order}.</span>
                     <MathText text={q.text} />
                   </p>
 
                   <div className="mt-3 space-y-1.5 text-sm">
                     <p className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="text-zinc-400">Your answer:</span>
+                      <span className="text-muted-foreground">Your answer:</span>
                       {q.selected ? (
-                        <span className={q.isCorrect ? 'font-medium text-emerald-700' : 'font-medium text-red-600'}>
+                        <span className={q.isCorrect ? 'font-medium text-emerald-700 dark:text-emerald-400' : 'font-medium text-red-600 dark:text-red-400'}>
                           {q.selected}. <MathText text={selectedOpt?.text ?? ''} />
                         </span>
                       ) : (
-                        <span className="italic text-zinc-400">Not answered</span>
+                        <span className="italic text-muted-foreground">Not answered</span>
                       )}
                     </p>
                     {!q.isCorrect && correctOpt && (
                       <p className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="text-zinc-400">Correct answer:</span>
-                        <span className="font-medium text-emerald-700">
+                        <span className="text-muted-foreground">Correct answer:</span>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-400">
                           {q.correctAnswer}. <MathText text={correctOpt.text} />
                         </span>
                       </p>
@@ -197,8 +197,8 @@ export function ReportCard({ attemptId }: ReportCardProps) {
                   </div>
 
                   {q.explanation && (
-                    <p className="mt-3 rounded-lg bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-500">
-                      <span className="font-medium text-zinc-600">Explanation: </span>
+                    <p className="mt-3 rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
+                      <span className="font-medium text-muted-foreground">Explanation: </span>
                       <MathText text={q.explanation} />
                     </p>
                   )}

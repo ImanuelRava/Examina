@@ -59,7 +59,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
 
   if (status === 'checking') {
     return (
-      <div className="flex items-center justify-center gap-2 py-20 text-sm text-zinc-400">
+      <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Checking session…
       </div>
@@ -69,12 +69,12 @@ export function AdminGate({ children }: { children: ReactNode }) {
   if (status === 'anon') {
     return (
       <div className="mx-auto max-w-sm py-10">
-        <div className="rounded-2xl border border-zinc-200 p-8">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200">
-            <KeyRound className="h-5 w-5 text-zinc-900" aria-hidden="true" />
+        <div className="rounded-2xl border border-border p-8">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border">
+            <KeyRound className="h-5 w-5 text-foreground" aria-hidden="true" />
           </span>
-          <h1 className="mt-6 text-xl font-semibold tracking-tight text-zinc-900">Admin login</h1>
-          <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">
+          <h1 className="mt-6 text-xl font-semibold tracking-tight text-foreground">Admin login</h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             Enter the admin password to manage exams and view results.
           </p>
 
@@ -87,7 +87,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
           >
             <div className="relative">
               <Lock
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden="true"
               />
               <Input

@@ -101,8 +101,8 @@ export function AdminExamList() {
     <div>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Exams</h1>
-          <p className="mt-1 text-sm text-zinc-500">Set up exams: create tests and manage questions.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Exams</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Set up exams: create tests and manage questions.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="shrink-0">
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -112,27 +112,27 @@ export function AdminExamList() {
 
       <div className="mt-8 space-y-3">
         {exams === null ? (
-          <div className="flex items-center justify-center gap-2 py-20 text-sm text-zinc-400">
+          <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Loading…
           </div>
         ) : exams.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-zinc-300 p-12 text-center">
-            <p className="text-sm font-medium text-zinc-900">No exams yet</p>
-            <p className="mt-1 text-sm text-zinc-500">Create your first exam to get started.</p>
+          <div className="rounded-xl border border-dashed border-border p-12 text-center">
+            <p className="text-sm font-medium text-foreground">No exams yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">Create your first exam to get started.</p>
           </div>
         ) : (
           exams.map((exam) => (
             <div
               key={exam.id}
-              className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 p-5 transition-colors hover:border-zinc-400 sm:p-6"
+              className="flex items-center justify-between gap-4 rounded-xl border border-border p-5 transition-colors hover:border-primary/50 sm:p-6"
             >
               <button
                 onClick={() => router.push(`/admin/exams/${exam.id}`)}
                 className="min-w-0 flex-1 text-left focus-visible:outline-none"
               >
-                <span className="block truncate text-base font-medium text-zinc-900">{exam.title}</span>
-                <span className="mt-0.5 block truncate text-sm text-zinc-500">
+                <span className="block truncate text-base font-medium text-foreground">{exam.title}</span>
+                <span className="mt-0.5 block truncate text-sm text-muted-foreground">
                   {exam.questionCount} {exam.questionCount === 1 ? 'question' : 'questions'} ·{' '}
                   {exam.attemptCount} {exam.attemptCount === 1 ? 'attempt' : 'attempts'}
                   {exam.description ? ` · ${exam.description}` : ''}
@@ -147,7 +147,7 @@ export function AdminExamList() {
                   size="icon"
                   aria-label={`Delete ${exam.title}`}
                   onClick={() => setDeletingId(exam.id)}
-                  className="text-zinc-400 hover:text-red-600"
+                  className="text-muted-foreground hover:text-red-600"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -179,7 +179,7 @@ export function AdminExamList() {
             </div>
             <div>
               <Label htmlFor="exam-desc">
-                Description <span className="font-normal text-zinc-400">(optional)</span>
+                Description <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
                 id="exam-desc"
@@ -218,7 +218,7 @@ export function AdminExamList() {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-red-600 text-primary-foreground hover:bg-red-700"
             >
               {deleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               Delete exam

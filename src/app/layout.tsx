@@ -4,6 +4,7 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SiteShell } from "@/components/exam/site-shell";
+import { ThemeProvider } from "@/components/exam/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,10 +17,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Noel's Test - Test Your Knowledge",
+  title: "Examina - Test Your Knowledge",
   description:
-    "A place to test student knowledge. Anyone can take a test and get an instant report card showing right and wrong answers. The admin sets up exams and questions.",
-  keywords: ["test", "exam", "examination", "quiz", "report card", "student", "admin", "knowledge"],
+    "A place to test student knowledge. Sign in to take exams and track your scores. The admin sets up exams and questions.",
+  keywords: ["examina", "test", "exam", "examination", "quiz", "report card", "student", "admin", "knowledge"],
 };
 
 export default function RootLayout({
@@ -32,7 +33,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <SiteShell>{children}</SiteShell>
+        <ThemeProvider>
+          <SiteShell>{children}</SiteShell>
+        </ThemeProvider>
         <Toaster />
       </body>
     </html>

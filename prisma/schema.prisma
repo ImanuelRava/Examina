@@ -34,9 +34,22 @@ model Question {
   @@index([examId, order])
 }
 
+model Student {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  passwordHash   String
+  createdAt      DateTime  @default(now())
+  attempts       Attempt[]
+
+  @@index([email])
+}
+
 model Attempt {
   id               String   @id @default(cuid())
   examId           String
+  // Optional link to a registered student. Null = anonymous attempt.
+  studentId        String?
   studentName      String   @default("Anonymous")
   score            Int
   total            Int
@@ -44,9 +57,12 @@ model Attempt {
   autoSubmitted    Boolean  @default(false)
   createdAt        DateTime @default(now())
   exam             Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student          Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   answers          Answer[]
 
   @@index([examId])
+  @@index([studentId])
+  @@index([createdAt])
 }
 
 model Answer {
@@ -59,4 +75,5 @@ model Answer {
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([attemptId])
+  @@index([questionId])
 }
