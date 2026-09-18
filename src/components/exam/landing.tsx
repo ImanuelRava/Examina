@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { GraduationCap, PenLine, ArrowRight, BarChart3, LayoutDashboard } from 'lucide-react'
+import {
+  GraduationCap,
+  PenLine,
+  ArrowRight,
+  BarChart3,
+  LayoutDashboard,
+  Sparkles,
+  Zap,
+  Award,
+} from 'lucide-react'
 
 interface StudentInfo {
   id: string
@@ -33,31 +42,69 @@ export function Landing() {
   }, [])
 
   return (
-    <div className="flex flex-col items-center py-8 sm:py-16">
-      <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">
-        Knowledge testing platform
-      </p>
-      <h1 className="mt-4 text-center text-4xl font-semibold tracking-tight sm:text-5xl">
-        Take tests.
-        <br />
-        Track scores.
-      </h1>
-      <p className="mt-5 max-w-md text-center text-base leading-relaxed text-muted-foreground">
-        Create an account to take exams and see all your scores in one place.
-        The admin sets up the exams — you focus on the answers.
-      </p>
+    <div className="flex flex-col items-center">
+      {/* Hero section */}
+      <section className="w-full py-12 text-center sm:py-20">
+        <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground">
+          <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
+          Knowledge testing platform
+        </div>
 
-      <div className="mt-12 grid w-full gap-4 sm:mt-16 sm:grid-cols-2 sm:gap-6">
-        {/* Student portal — adaptive CTA */}
+        <h1 className="mt-6 text-5xl font-bold tracking-tight sm:text-7xl">
+          <span className="text-foreground">Examina</span>
+        </h1>
+
+        <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          Take tests. Track your scores. See exactly which answers were right or wrong.
+          Built for students who want instant feedback.
+        </p>
+
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          {checked && student ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+              Go to your dashboard
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          ) : (
+            <>
+              <Link
+                href={checked ? '/register' : '#'}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                {checked ? 'Create your free account' : 'Loading…'}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href={checked ? '/login' : '#'}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card px-6 text-sm font-medium transition-colors hover:bg-accent"
+              >
+                Sign in
+              </Link>
+            </>
+          )}
+        </div>
+
+        <p className="mt-4 text-xs text-muted-foreground">
+          Everyone needs an account to take exams. It is free.
+        </p>
+      </section>
+
+      {/* Two portal cards */}
+      <section className="grid w-full gap-4 sm:grid-cols-2 sm:gap-6">
         {checked && student ? (
           <Link
             href="/dashboard"
-            className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
+            className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
             </span>
-            <span className="mt-6 text-lg font-medium">Your dashboard</span>
+            <span className="mt-6 text-lg font-semibold">Your dashboard</span>
             <span className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
               Welcome back, {student.name.split(' ')[0]}. See your past attempts,
               scores, and retake any exam.
@@ -70,33 +117,31 @@ export function Landing() {
         ) : (
           <Link
             href={checked ? '/register' : '#'}
-            className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
+            className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <GraduationCap className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <GraduationCap className="h-6 w-6" aria-hidden="true" />
             </span>
-            <span className="mt-6 text-lg font-medium">Take a test</span>
+            <span className="mt-6 text-lg font-semibold">Take a test</span>
             <span className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
-              {checked
-                ? 'Create a free account to browse exams, take tests, and get instant report cards with your scores.'
-                : 'Create a free account to take exams and track your scores.'}
+              Create a free account to browse available exams, answer at your own pace,
+              and get an instant report card with your scores.
             </span>
             <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
-              {checked ? 'Get started' : 'Loading…'}
+              Get started
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
             </span>
           </Link>
         )}
 
-        {/* Admin console */}
         <Link
           href="/admin"
-          className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
+          className="group flex flex-col rounded-2xl border border-border bg-card p-7 text-left transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-8"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <PenLine className="h-5 w-5" aria-hidden="true" />
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <PenLine className="h-6 w-6" aria-hidden="true" />
           </span>
-          <span className="mt-6 text-lg font-medium">Admin portal</span>
+          <span className="mt-6 text-lg font-semibold">Admin portal</span>
           <span className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
             Create exams, write questions, set time limits, and view every
             student&apos;s results. Grading is automatic.
@@ -106,43 +151,63 @@ export function Landing() {
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
         </Link>
-      </div>
+      </section>
 
       {/* Feature row */}
-      <div className="mt-16 grid w-full gap-6 sm:grid-cols-3">
-        <div className="text-center">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
-            <BarChart3 className="h-4 w-4" aria-hidden="true" />
+      <section className="mt-16 grid w-full gap-6 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-card p-6 text-center">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <BarChart3 className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h3 className="mt-3 text-sm font-medium">Score tracking</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <h3 className="mt-4 text-sm font-semibold">Score tracking</h3>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
             Sign in to see all your attempts and scores in one dashboard.
           </p>
         </div>
-        <div className="text-center">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
-            <GraduationCap className="h-4 w-4" aria-hidden="true" />
+        <div className="rounded-xl border border-border bg-card p-6 text-center">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Zap className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h3 className="mt-3 text-sm font-medium">Instant grading</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Submit and get your report card immediately — no waiting.
+          <h3 className="mt-4 text-sm font-semibold">Instant grading</h3>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+            Submit and get your report card immediately. No waiting required.
           </p>
         </div>
-        <div className="text-center">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
-            <PenLine className="h-4 w-4" aria-hidden="true" />
+        <div className="rounded-xl border border-border bg-card p-6 text-center">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Award className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h3 className="mt-3 text-sm font-medium">LaTeX support</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <h3 className="mt-4 text-sm font-semibold">LaTeX support</h3>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
             Math questions render beautifully with KaTeX on every screen.
           </p>
         </div>
-      </div>
+      </section>
+
+      {/* Credit highlight */}
+      <section className="mt-16 w-full">
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card p-8 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">
+            Built by
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            Imanuel Rava
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+            This website was generated and engineered by Imanuel Rava.
+            Every line of code, from the exam engine to the report card PDF,
+            was crafted with care for students and educators.
+          </p>
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground">
+            <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
+            Crafted with care by Imanuel Rava
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
 
-// Inline the api helper to avoid a circular import dance with the 'use client' directive
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     cache: 'no-store',

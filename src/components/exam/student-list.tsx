@@ -108,7 +108,7 @@ export function StudentExamList() {
         <FileText className="mx-auto h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
         <p className="mt-4 text-sm font-medium">No tests available yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Check back later — the admin sets up exams in the Admin Portal.
+          Check back later. The admin sets up exams in the Admin Portal.
         </p>
       </div>
     )

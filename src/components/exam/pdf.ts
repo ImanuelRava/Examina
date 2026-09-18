@@ -190,11 +190,11 @@ export async function downloadReportPdf(report: AttemptReport): Promise<void> {
     doc.setTextColor(...color)
     doc.text(result, pillX + pillW / 2, pillY + 12, { align: 'center' })
 
-    // Your answer letter (or "—")
+    // Your answer letter (or "blank")
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     doc.setTextColor(...(q.isCorrect ? GREEN : q.selected ? RED : MUTED))
-    const ansText = q.selected || '—'
+    const ansText = q.selected || 'blank'
     doc.text(ansText, M + colW.num + colW.result + 12, y + 18)
 
     y += rowH
